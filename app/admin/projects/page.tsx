@@ -32,6 +32,7 @@ const AdminProjectsPage = React.memo(function AdminProjectsPage() {
   const [editingProject, setEditingProject] = useState<Tables<'projects'> | null>(null)
   const [editingImage, setEditingImage] = useState<Tables<'images'> | null>(null)
   const [showImageDialog, setShowImageDialog] = useState(false)
+  const [displayLimit, setDisplayLimit] = useState(12) // Limit initial display for performance
 
   // Form states
   const [newProject, setNewProject] = useState({
@@ -90,15 +91,20 @@ const AdminProjectsPage = React.memo(function AdminProjectsPage() {
       setError(null)
       console.log('Loading data from Supabase...')
       
-      SupabaseContentService.clearProjectCache()
+      // Don't clear cache on every load - only clear when needed
+      // SupabaseContentService.clearProjectCache()
       
-      const connectionTest = await SupabaseContentService.testConnection()
-      if (!connectionTest.success) {
-        throw new Error(`Database connection failed: ${connectionTest.error}`)
-      }
+      // Remove connection test - it adds unnecessary delay
+      // const connectionTest = await SupabaseContentService.testConnection()
+      // if (!connectionTest.success) {
+      //   throw new Error(`Database connection failed: ${connectionTest.error}`)
+      // }
       
-      const projectsData = await SupabaseContentService.getAllProjects()
-      const imagesData = await SupabaseContentService.getAllImages()
+      // Fetch data in parallel for better performance
+      const [projectsData, imagesData] = await Promise.all([
+        SupabaseContentService.getAllProjects(),
+        SupabaseContentService.getAllImages()
+      ])
       
       setProjects(projectsData)
       setImages(imagesData)
@@ -344,8 +350,16 @@ const AdminProjectsPage = React.memo(function AdminProjectsPage() {
                     await loadData()
                   }}
                   className="text-sm"
+                  disabled={loading}
                 >
-                  🔄 Refresh Data
+                  {loading ? (
+                    <>
+                      <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin mr-2"></div>
+                      Loading...
+                    </>
+                  ) : (
+                    '🔄 Refresh Data'
+                  )}
                 </Button>
               </div>
               <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
@@ -413,7 +427,34 @@ const AdminProjectsPage = React.memo(function AdminProjectsPage() {
 
 
             <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {projectsWithCoverImages.length === 0 ? (
+              {loading ? (
+                // Loading skeleton
+                Array.from({ length: 6 }).map((_, index) => (
+                  <Card key={`skeleton-${index}`} className="bg-card border-border animate-pulse">
+                    <CardContent className="p-0">
+                      <div className="aspect-video bg-muted rounded-t-lg"></div>
+                      <div className="p-4 space-y-3">
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between">
+                            <div className="h-4 bg-muted rounded w-16"></div>
+                            <div className="h-4 bg-muted rounded w-12"></div>
+                          </div>
+                          <div className="h-5 bg-muted rounded w-3/4"></div>
+                          <div className="h-4 bg-muted rounded w-full"></div>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <div className="h-3 bg-muted rounded w-20"></div>
+                          <div className="h-3 bg-muted rounded w-24"></div>
+                        </div>
+                        <div className="flex space-x-2">
+                          <div className="h-8 bg-muted rounded flex-1"></div>
+                          <div className="h-8 bg-muted rounded flex-1"></div>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))
+              ) : projectsWithCoverImages.length === 0 ? (
                 <div className="col-span-full text-center py-12">
                   <div className="text-6xl mb-4">🏗️</div>
                   <h3 className="text-xl font-mono font-semibold text-foreground mb-2">
@@ -436,86 +477,105 @@ const AdminProjectsPage = React.memo(function AdminProjectsPage() {
                   )}
                 </div>
               ) : (
-                projectsWithCoverImages.map((project) => {
-                  const projectImages = getProjectImages(project.id)
-                  const coverImage = project.coverImage
-                  
-                  return (
-                    <Card key={project.id} className="bg-card border-border hover:border-primary/50 transition-all">
-                      <CardContent className="p-0">
-                        <div className="aspect-video bg-muted flex items-center justify-center overflow-hidden relative rounded-t-lg">
-                          {coverImage && coverImage.url ? (
-                            <img 
-                              src={coverImage.url} 
-                              alt={coverImage.name} 
-                              className="w-full h-full object-cover object-center min-w-full min-h-full" 
-                              loading="lazy"
-                              style={{ objectPosition: 'center center' }}
-                              onError={(e) => {
-                                console.error(`Failed to load cover image: ${coverImage.name}`, e)
-                                e.currentTarget.style.display = 'none'
-                                e.currentTarget.nextElementSibling?.classList.remove('hidden')
-                              }}
-                            />
-                          ) : null}
-                          <div className={`absolute inset-0 flex items-center justify-center text-muted-foreground ${coverImage && coverImage.url ? 'hidden' : ''}`}>
-                            <div className="text-center">
-                              <div className="text-4xl mb-2">🏗️</div>
-                              <p className="text-sm">No cover image</p>
+                <>
+                  {projectsWithCoverImages.slice(0, displayLimit).map((project) => {
+                    const projectImages = getProjectImages(project.id)
+                    const coverImage = project.coverImage
+                    
+                    return (
+                      <Card key={project.id} className="bg-card border-border hover:border-primary/50 transition-all">
+                        <CardContent className="p-0">
+                          <div className="aspect-video bg-muted flex items-center justify-center overflow-hidden relative rounded-t-lg">
+                            {coverImage && coverImage.url ? (
+                              <img 
+                                src={coverImage.url} 
+                                alt={coverImage.name} 
+                                className="w-full h-full object-cover object-center min-w-full min-h-full" 
+                                loading="lazy"
+                                decoding="async"
+                                style={{ objectPosition: 'center center' }}
+                                onError={(e) => {
+                                  console.error(`Failed to load cover image: ${coverImage.name}`, e)
+                                  e.currentTarget.style.display = 'none'
+                                  e.currentTarget.nextElementSibling?.classList.remove('hidden')
+                                }}
+                                onLoad={() => {
+                                  // Image loaded successfully
+                                }}
+                              />
+                            ) : null}
+                            <div className={`absolute inset-0 flex items-center justify-center text-muted-foreground ${coverImage && coverImage.url ? 'hidden' : ''}`}>
+                              <div className="text-center">
+                                <div className="text-4xl mb-2">🏗️</div>
+                                <p className="text-sm">No cover image</p>
+                              </div>
                             </div>
+                            {coverImage && coverImage.url && (
+                              <div className="absolute top-2 right-2 bg-primary/90 text-primary-foreground text-xs px-2 py-1 rounded">
+                                Cover
+                              </div>
+                            )}
                           </div>
-                          {coverImage && coverImage.url && (
-                            <div className="absolute top-2 right-2 bg-primary/90 text-primary-foreground text-xs px-2 py-1 rounded">
-                              Cover
+                          <div className="p-4 space-y-3">
+                            <div className="space-y-2">
+                              <div className="flex items-center justify-between">
+                                <span className="text-xs text-primary bg-primary/10 px-2 py-1 rounded">
+                                  {project.category}
+                                </span>
+                                <span className="text-xs text-muted-foreground font-mono">{project.year}</span>
+                              </div>
+                              <h3 className="text-lg font-mono font-semibold text-foreground">
+                                {project.title}
+                              </h3>
+                              <p className="text-sm text-muted-foreground leading-relaxed line-clamp-2">
+                                {project.description}
+                              </p>
                             </div>
-                          )}
-                        </div>
-                        <div className="p-4 space-y-3">
-                          <div className="space-y-2">
-                            <div className="flex items-center justify-between">
-                              <span className="text-xs text-primary bg-primary/10 px-2 py-1 rounded">
-                                {project.category}
-                              </span>
-                              <span className="text-xs text-muted-foreground font-mono">{project.year}</span>
+                            
+                            <div className="flex items-center justify-between text-xs text-muted-foreground">
+                              <span>{projectImages.length} images</span>
+                              <span>{new Date(project.created_at).toLocaleDateString()}</span>
                             </div>
-                            <h3 className="text-lg font-mono font-semibold text-foreground">
-                              {project.title}
-                            </h3>
-                            <p className="text-sm text-muted-foreground leading-relaxed line-clamp-2">
-                              {project.description}
-                            </p>
-                          </div>
-                          
-                          <div className="flex items-center justify-between text-xs text-muted-foreground">
-                            <span>{projectImages.length} images</span>
-                            <span>{new Date(project.created_at).toLocaleDateString()}</span>
-                          </div>
 
-                          <div className="flex space-x-2">
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => openEditDialog(project)}
-                              className="flex-1 border-primary/30 text-primary hover:bg-primary hover:text-primary-foreground bg-transparent"
-                            >
-                              <Edit className="w-3 h-3 mr-1" />
-                              Edit
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => handleDeleteProject(project.id)}
-                              className="flex-1 border-red-300 text-red-600 hover:bg-red-50 bg-transparent"
-                            >
-                              <Trash2 className="w-3 h-3 mr-1" />
-                              Delete
-                            </Button>
+                            <div className="flex space-x-2">
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => openEditDialog(project)}
+                                className="flex-1 border-primary/30 text-primary hover:bg-primary hover:text-primary-foreground bg-transparent"
+                              >
+                                <Edit className="w-3 h-3 mr-1" />
+                                Edit
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => handleDeleteProject(project.id)}
+                                className="flex-1 border-red-300 text-red-600 hover:bg-red-50 bg-transparent"
+                              >
+                                <Trash2 className="w-3 h-3 mr-1" />
+                                Delete
+                              </Button>
+                            </div>
                           </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  )
-                })
+                        </CardContent>
+                      </Card>
+                    )
+                  })}
+                  
+                  {/* Load More Button */}
+                  {projectsWithCoverImages.length > displayLimit && (
+                    <div className="col-span-full text-center py-6">
+                      <Button
+                        onClick={() => setDisplayLimit(prev => prev + 12)}
+                        variant="outline"
+                        className="px-8"
+                      >
+                        Load More Projects ({displayLimit} of {projectsWithCoverImages.length})
+                      </Button>
+                    </div>
+                  )}
+                </>
               )}
             </div>
           </div>

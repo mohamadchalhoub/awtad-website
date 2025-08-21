@@ -4,7 +4,7 @@ import type { Tables, InsertDto, UpdateDto } from './supabase'
 export class SupabaseContentService {
   // Cache for storing fetched data
   private static cache = new Map<string, { data: any; timestamp: number }>()
-  private static CACHE_DURATION = 2 * 60 * 1000 // Reduced to 2 minutes for more responsive updates
+  private static CACHE_DURATION = 5 * 60 * 1000 // Increased to 5 minutes for better performance
 
   // Clear expired cache entries
   private static clearExpiredCache() {
@@ -46,7 +46,7 @@ export class SupabaseContentService {
     this.cache.delete('all_images')
   }
 
-  // Test database connection
+  // Test database connection - removed from main flow for performance
   static async testConnection(): Promise<{ success: boolean; error?: string }> {
     try {
       const { data, error } = await supabase
