@@ -4,12 +4,14 @@ import { Navigation } from "@/components/navigation"
 import { ProjectGallery } from "@/components/project-gallery"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useContent } from "@/hooks/use-content"
 import { SupabaseContentService } from "@/lib/supabase-content"
 import { useRouter } from "next/navigation"
 import { useState, useEffect } from "react"
-import { Share2, Download, Maximize2 } from "lucide-react"
+import { Share2, Download, Maximize2, Filter } from "lucide-react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import type { Tables } from "@/lib/supabase"
 
 interface ProjectWithCover {
   id: number
@@ -24,16 +26,43 @@ interface ProjectWithCover {
 export default function ProjectsPage() {
   const { content, isLoading, refreshContent } = useContent()
   const router = useRouter()
+  const [allProjects, setAllProjects] = useState<ProjectWithCover[]>([])
   const [projectsWithCover, setProjectsWithCover] = useState<ProjectWithCover[]>([])
+  const [categories, setCategories] = useState<Tables<'categories'>[]>([])
+  const [selectedCategory, setSelectedCategory] = useState<string>('all')
   const [showShareDialog, setShowShareDialog] = useState(false)
   const [selectedProject, setSelectedProject] = useState<ProjectWithCover | null>(null)
 
   useEffect(() => {
     if (content?.projects) {
       // Projects already have coverImageUrl from the content hook
+      setAllProjects(content.projects)
       setProjectsWithCover(content.projects)
     }
   }, [content])
+
+  // Load categories
+  useEffect(() => {
+    const loadCategories = async () => {
+      try {
+        const categoriesData = await SupabaseContentService.getAllCategories()
+        setCategories(categoriesData)
+      } catch (error) {
+        console.error('Error loading categories:', error)
+      }
+    }
+    loadCategories()
+  }, [])
+
+  // Filter projects based on selected category
+  useEffect(() => {
+    if (selectedCategory === 'all') {
+      setProjectsWithCover(allProjects)
+    } else {
+      const filtered = allProjects.filter(project => project.category === selectedCategory)
+      setProjectsWithCover(filtered)
+    }
+  }, [selectedCategory, allProjects])
 
   // Refresh content when the page becomes visible (disabled to prevent unwanted refreshes)
   // useEffect(() => {
@@ -159,8 +188,74 @@ export default function ProjectsPage() {
 
       <section className="pb-16 px-6">
         <div className="max-w-7xl mx-auto">
+          {/* Category Filter Section */}
+          <div className="mb-8">
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+              <div className="flex items-center space-x-3">
+                <Filter className="w-5 h-5 text-primary" />
+                <span className="text-lg font-mono font-semibold text-foreground">Filter by Category</span>
+              </div>
+              <div className="flex items-center space-x-3">
+                <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+                  <SelectTrigger className="w-48 bg-background border-border">
+                    <SelectValue placeholder="Select a category" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Categories</SelectItem>
+                    {categories.map(category => (
+                      <SelectItem key={category.id} value={category.name}>
+                        {category.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {selectedCategory !== 'all' && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setSelectedCategory('all')}
+                    className="text-primary border-primary/30 hover:bg-primary hover:text-primary-foreground"
+                  >
+                    Clear Filter
+                  </Button>
+                )}
+              </div>
+            </div>
+            
+            {/* Results count */}
+            <div className="mt-4 text-center">
+              <p className="text-sm text-muted-foreground">
+                Showing {projectsWithCover.length} project{projectsWithCover.length !== 1 ? 's' : ''}
+                {selectedCategory !== 'all' && ` in ${selectedCategory}`}
+              </p>
+            </div>
+          </div>
+
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {projectsWithCover.map((project) => (
+            {projectsWithCover.length === 0 ? (
+              <div className="col-span-full text-center py-16">
+                <div className="text-6xl mb-4">🔍</div>
+                <h3 className="text-xl font-mono font-semibold text-foreground mb-2">
+                  No Projects Found
+                </h3>
+                <p className="text-muted-foreground mb-6">
+                  {selectedCategory !== 'all' 
+                    ? `No projects found in the "${selectedCategory}" category.` 
+                    : 'No projects available at the moment.'
+                  }
+                </p>
+                {selectedCategory !== 'all' && (
+                  <Button
+                    onClick={() => setSelectedCategory('all')}
+                    variant="outline"
+                    className="text-primary border-primary/30 hover:bg-primary hover:text-primary-foreground"
+                  >
+                    View All Projects
+                  </Button>
+                )}
+              </div>
+            ) : (
+              projectsWithCover.map((project) => (
               <Card
                 key={project.id}
                 className="bg-card border-border hover:border-primary/50 transition-all hover:glow-gold group cursor-pointer"
@@ -238,7 +333,8 @@ export default function ProjectsPage() {
                   </div>
                 </CardContent>
               </Card>
-            ))}
+            ))
+            )}
           </div>
         </div>
       </section>

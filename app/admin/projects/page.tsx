@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+
 import { SupabaseContentService } from "@/lib/supabase-content"
 import React, { useState, useEffect, useMemo, useCallback } from "react"
 import { Plus, Edit, Trash2, Crown } from "lucide-react"
@@ -25,6 +26,7 @@ const AdminProjectsPage = React.memo(function AdminProjectsPage() {
   const { refreshContent } = useContentAdmin()
   const [projects, setProjects] = useState<Tables<'projects'>[]>([])
   const [images, setImages] = useState<Tables<'images'>[]>([])
+  const [categories, setCategories] = useState<Tables<'categories'>[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [showAddDialog, setShowAddDialog] = useState(false)
@@ -101,13 +103,15 @@ const AdminProjectsPage = React.memo(function AdminProjectsPage() {
       // }
       
       // Fetch data in parallel for better performance
-      const [projectsData, imagesData] = await Promise.all([
+      const [projectsData, imagesData, categoriesData] = await Promise.all([
         SupabaseContentService.getAllProjects(),
-        SupabaseContentService.getAllImages()
+        SupabaseContentService.getAllImages(),
+        SupabaseContentService.getAllCategories()
       ])
       
       setProjects(projectsData)
       setImages(imagesData)
+      setCategories(categoriesData)
       
       console.log('Data loading completed successfully')
     } catch (error) {
@@ -115,6 +119,7 @@ const AdminProjectsPage = React.memo(function AdminProjectsPage() {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred'
       setProjects([])
       setImages([])
+      setCategories([])
       setError(errorMessage)
     } finally {
       setLoading(false)
@@ -123,9 +128,31 @@ const AdminProjectsPage = React.memo(function AdminProjectsPage() {
 
   const handleAddProject = async () => {
     try {
+      // Check if category exists, if not create it
+      let categoryToUse = newProject.category
+      const existingCategory = categories.find(cat => cat.name.toLowerCase() === newProject.category.toLowerCase())
+      
+      if (!existingCategory && newProject.category.trim()) {
+        // Create new category
+        const newCategory = await SupabaseContentService.createCategory({
+          name: newProject.category.trim(),
+          description: `Category for ${newProject.title}`,
+          color: '#3B82F6',
+          icon: '🏗️',
+          is_active: true
+        })
+        
+        if (newCategory) {
+          categoryToUse = newCategory.name
+          // Refresh categories list
+          const updatedCategories = await SupabaseContentService.getAllCategories()
+          setCategories(updatedCategories)
+        }
+      }
+
       const result = await SupabaseContentService.createProject({
         title: newProject.title,
-        category: newProject.category,
+        category: categoryToUse,
         year: newProject.year,
         description: newProject.description,
         is_active: true
@@ -146,9 +173,31 @@ const AdminProjectsPage = React.memo(function AdminProjectsPage() {
     if (!editingProject) return
 
     try {
+      // Check if category exists, if not create it
+      let categoryToUse = editProject.category
+      const existingCategory = categories.find(cat => cat.name.toLowerCase() === editProject.category.toLowerCase())
+      
+      if (!existingCategory && editProject.category.trim()) {
+        // Create new category
+        const newCategory = await SupabaseContentService.createCategory({
+          name: editProject.category.trim(),
+          description: `Category for ${editProject.title}`,
+          color: '#3B82F6',
+          icon: '🏗️',
+          is_active: true
+        })
+        
+        if (newCategory) {
+          categoryToUse = newCategory.name
+          // Refresh categories list
+          const updatedCategories = await SupabaseContentService.getAllCategories()
+          setCategories(updatedCategories)
+        }
+      }
+
       const result = await SupabaseContentService.updateProject(editingProject.id, {
         title: editProject.title,
-        category: editProject.category,
+        category: categoryToUse,
         year: editProject.year,
         description: editProject.description
       })
@@ -385,12 +434,23 @@ const AdminProjectsPage = React.memo(function AdminProjectsPage() {
                     </div>
                     <div>
                       <Label htmlFor="category">Category</Label>
-                      <Input
-                        id="category"
-                        value={newProject.category}
-                        onChange={(e) => setNewProject({ ...newProject, category: e.target.value })}
-                        placeholder="Project category"
-                      />
+                      <div className="space-y-2">
+                        <Input
+                          id="category"
+                          value={newProject.category}
+                          onChange={(e) => setNewProject({ ...newProject, category: e.target.value })}
+                          placeholder="Type a category name (e.g., Commercial, Industrial, or create new)"
+                          list="category-suggestions"
+                        />
+                        <datalist id="category-suggestions">
+                          {categories.map(category => (
+                            <option key={category.id} value={category.name} />
+                          ))}
+                        </datalist>
+                        <p className="text-xs text-muted-foreground">
+                          Type an existing category or create a new one. Existing categories will be auto-completed.
+                        </p>
+                      </div>
                     </div>
                     <div>
                       <Label htmlFor="year">Year</Label>
@@ -604,11 +664,23 @@ const AdminProjectsPage = React.memo(function AdminProjectsPage() {
                 </div>
                 <div>
                   <Label htmlFor="edit-category">Category</Label>
-                  <Input
-                    id="edit-category"
-                    value={editProject.category}
-                    onChange={(e) => setEditProject({ ...editProject, category: e.target.value })}
-                  />
+                  <div className="space-y-2">
+                    <Input
+                      id="edit-category"
+                      value={editProject.category}
+                      onChange={(e) => setEditProject({ ...editProject, category: e.target.value })}
+                      placeholder="Type a category name (e.g., Commercial, Industrial, or create new)"
+                      list="edit-category-suggestions"
+                    />
+                    <datalist id="edit-category-suggestions">
+                      {categories.map(category => (
+                        <option key={category.id} value={category.name} />
+                      ))}
+                    </datalist>
+                    <p className="text-xs text-muted-foreground">
+                      Type an existing category or create a new one. Existing categories will be auto-completed.
+                    </p>
+                  </div>
                 </div>
                 <div>
                   <Label htmlFor="edit-year">Year</Label>

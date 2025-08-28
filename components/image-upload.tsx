@@ -21,9 +21,10 @@ interface ImageUploadProps {
   }) => void
   defaultCategory?: string
   projectId?: number
+  categories?: { id: number; name: string }[]
 }
 
-export function ImageUpload({ onUploadComplete, defaultCategory = "general", projectId }: ImageUploadProps) {
+export function ImageUpload({ onUploadComplete, defaultCategory = "general", projectId, categories }: ImageUploadProps) {
   const [isDragging, setIsDragging] = useState(false)
   const [isUploading, setIsUploading] = useState(false)
   const [category, setCategory] = useState(defaultCategory)
@@ -31,7 +32,8 @@ export function ImageUpload({ onUploadComplete, defaultCategory = "general", pro
   const [success, setSuccess] = useState("")
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
 
-  const categories = ["general", "Commercial", "Industrial", "Residential", "Infrastructure", "projects", "team", "services", "hero"]
+  const defaultCategories = ["general", "Commercial", "Industrial", "Residential", "Infrastructure", "projects", "team", "services", "hero"]
+  const categoryOptions = categories?.map(cat => cat.name) || defaultCategories
 
   // Convert file to base64 data URL
   const fileToDataUrl = (file: File): Promise<string> => {
@@ -119,7 +121,7 @@ export function ImageUpload({ onUploadComplete, defaultCategory = "general", pro
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            {categories.map((cat) => (
+            {categoryOptions.map((cat) => (
               <SelectItem key={cat} value={cat}>
                 {cat.charAt(0).toUpperCase() + cat.slice(1)}
               </SelectItem>
