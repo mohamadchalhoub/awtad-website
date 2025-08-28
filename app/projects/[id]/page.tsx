@@ -126,20 +126,6 @@ I would like to place an order for the following project image:
 • Image Category: ${image.category}
 • Image Size: ${formatFileSize(image.size)}
 
-💼 ORDER REQUEST:
-Please provide me with:
-1. Pricing for this image
-2. Available formats and resolutions
-3. Licensing terms and usage rights
-4. Delivery timeline
-5. Payment methods accepted
-
-📞 MY CONTACT INFORMATION:
-• Name: [Please fill in your name]
-• Email: [Please fill in your email]
-• Phone: [Please fill in your phone number]
-• Company/Organization: [Please fill in if applicable]
-
 🔗 Project URL: ${window.location.href}
 
 📸 Image Reference: ${image.name}
