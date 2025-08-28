@@ -139,12 +139,25 @@ Thank you! I look forward to hearing from you.`
     
     console.log('Opening WhatsApp link:', whatsappLink)
     
-    // Open WhatsApp in new tab
-    try {
-      const whatsappWindow = window.open(whatsappLink, '_blank')
-      
-      if (!whatsappWindow) {
-        // Fallback: show WhatsApp modal with instructions
+    // Check if we're on mobile or desktop
+    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
+    
+    if (isMobile) {
+      // On mobile, try to open WhatsApp app
+      try {
+        const whatsappWindow = window.open(whatsappLink, '_blank')
+        
+        if (!whatsappWindow) {
+          // Fallback: show WhatsApp modal
+          setWhatsappContent({ 
+            subject: `WhatsApp Order Request for ${image.name}`, 
+            body: message, 
+            imageUrl: image.url 
+          })
+          setShowWhatsAppModal(true)
+        }
+      } catch (error) {
+        console.error('Error opening WhatsApp on mobile:', error)
         setWhatsappContent({ 
           subject: `WhatsApp Order Request for ${image.name}`, 
           body: message, 
@@ -152,9 +165,8 @@ Thank you! I look forward to hearing from you.`
         })
         setShowWhatsAppModal(true)
       }
-    } catch (error) {
-      console.error('Error opening WhatsApp:', error)
-      // Fallback to modal
+    } else {
+      // On desktop, always show the modal first with WhatsApp Web option
       setWhatsappContent({ 
         subject: `WhatsApp Order Request for ${image.name}`, 
         body: message, 
@@ -612,6 +624,9 @@ Thank you! I look forward to hearing from you.`
               <h4 className="font-semibold text-green-800 mb-2">📱 WhatsApp Details:</h4>
               <p><strong>To:</strong> +96171175906 (AWTAD Team)</p>
               <p><strong>Platform:</strong> WhatsApp</p>
+              <p className="text-sm text-green-700 mt-2">
+                💡 <strong>Desktop Users:</strong> Use "Open WhatsApp Web" button below to open WhatsApp in your browser
+              </p>
             </div>
             
             <div>
@@ -644,6 +659,20 @@ Thank you! I look forward to hearing from you.`
                 className="flex-1"
               >
                 Copy WhatsApp Message
+              </Button>
+              <Button
+                onClick={() => {
+                  // Open WhatsApp Web for desktop users
+                  if (whatsappContent) {
+                    const whatsappNumber = '+96171175906'
+                    const encodedMessage = encodeURIComponent(whatsappContent.body)
+                    const whatsappLink = `https://wa.me/${whatsappNumber}?text=${encodedMessage}`
+                    window.open(whatsappLink, '_blank')
+                  }
+                }}
+                className="flex-1 bg-green-600 hover:bg-green-700"
+              >
+                📱 Open WhatsApp Web
               </Button>
               <Button
                 variant="outline"
