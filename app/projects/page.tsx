@@ -49,6 +49,15 @@ export default function ProjectsPage() {
         setCategories(categoriesData)
       } catch (error) {
         console.error('Error loading categories:', error)
+        // Provide fallback categories so the page can still function
+        const fallbackCategories = [
+          { id: 1, name: 'Commercial', description: 'Commercial projects', color: '#3B82F6', icon: '🏢', created_at: new Date().toISOString(), is_active: true },
+          { id: 2, name: 'Industrial', description: 'Industrial projects', color: '#10B981', icon: '🏭', created_at: new Date().toISOString(), is_active: true },
+          { id: 3, name: 'Residential', description: 'Residential projects', color: '#F59E0B', icon: '🏠', created_at: new Date().toISOString(), is_active: true },
+          { id: 4, name: 'Infrastructure', description: 'Infrastructure projects', color: '#8B5CF6', icon: '🌉', created_at: new Date().toISOString(), is_active: true },
+          { id: 5, name: 'General', description: 'General projects', color: '#6B7280', icon: '🏗️', created_at: new Date().toISOString(), is_active: true }
+        ]
+        setCategories(fallbackCategories)
       }
     }
     loadCategories()
