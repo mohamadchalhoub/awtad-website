@@ -110,7 +110,7 @@ export default function ProjectDetailPage() {
   const handleOrderNow = (image: ProjectImage) => {
     console.log('handleOrderNow called with image:', image)
     
-    // Create WhatsApp message content
+    // Create clean WhatsApp message content
     const message = `Hello AWTAD Team! 🏗️
 
 I would like to place an order for the following project image:
@@ -124,9 +124,7 @@ I would like to place an order for the following project image:
 🖼️ IMAGE DETAILS:
 • Image Name: ${image.name}
 • Image Category: ${image.category}
-• Image URL: ${image.url}
 • Image Size: ${formatFileSize(image.size)}
-• Upload Date: ${new Date(image.uploadDate).toLocaleDateString()}
 
 💼 ORDER REQUEST:
 Please provide me with:
@@ -143,6 +141,8 @@ Please provide me with:
 • Company/Organization: [Please fill in if applicable]
 
 🔗 Project URL: ${window.location.href}
+
+📸 Image Reference: ${image.name}
 
 Thank you! I look forward to hearing from you.`
 
@@ -638,10 +638,10 @@ Thank you! I look forward to hearing from you.`
             <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
               <h4 className="font-semibold text-blue-800 mb-2">🖼️ Image Reference:</h4>
               <p className="text-sm text-blue-700 mb-2">
-                <strong>Image URL:</strong> {whatsappContent?.imageUrl}
+                <strong>Image Name:</strong> {whatsappContent?.imageUrl ? whatsappContent.imageUrl.split('/').pop()?.split('.')[0] || 'N/A' : 'N/A'}
               </p>
               <p className="text-sm text-blue-700">
-                You can share this image URL in your WhatsApp message for reference.
+                The image name is included in the WhatsApp message for easy reference.
               </p>
             </div>
 
@@ -650,7 +650,7 @@ Thank you! I look forward to hearing from you.`
                 onClick={() => {
                   // Copy WhatsApp message to clipboard
                   if (whatsappContent) {
-                    const fullMessage = `${whatsappContent.body}\n\nImage URL: ${whatsappContent.imageUrl}`
+                    const fullMessage = `${whatsappContent.body}`
                     navigator.clipboard.writeText(fullMessage)
                     alert('WhatsApp message copied to clipboard!')
                   }
