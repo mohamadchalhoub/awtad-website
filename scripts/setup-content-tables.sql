@@ -54,3 +54,5 @@ CREATE POLICY "Allow anonymous access to about_content" ON about_content
 CREATE INDEX IF NOT EXISTS idx_homepage_content_section ON homepage_content(section_name);
 CREATE INDEX IF NOT EXISTS idx_about_content_section ON about_content(section_name);
 
+
+

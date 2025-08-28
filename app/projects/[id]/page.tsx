@@ -7,7 +7,7 @@ import { useContent } from "@/hooks/use-content"
 import { SupabaseContentService } from "@/lib/supabase-content"
 import { useRouter, useParams } from "next/navigation"
 import { useEffect, useState } from "react"
-import { ArrowLeft, Calendar, Tag, Image as ImageIcon, Share2, Download, X, ChevronLeft, ChevronRight, Maximize2 } from "lucide-react"
+import { ArrowLeft, Calendar, Tag, Image as ImageIcon, Share2, Download, X, ChevronLeft, ChevronRight, Maximize2, Mail } from "lucide-react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 
 interface ProjectWithCover {
@@ -103,6 +103,26 @@ export default function ProjectDetailPage() {
 
   const handleCloseViewer = () => {
     setSelectedImageIndex(null)
+  }
+
+  const handleOrderNow = (image: ProjectImage) => {
+    const subject = encodeURIComponent(`Order Request for ${image.name} - ${project?.title}`)
+    const body = encodeURIComponent(`Hello AWTAD Team,
+
+I would like to place an order for the following image:
+
+Project: ${project?.title}
+Image: ${image.name}
+Category: ${image.category}
+Image URL: ${image.url}
+
+Please provide me with pricing and ordering details.
+
+Best regards,
+[Your Name]`)
+
+    const mailtoLink = `mailto:info@awtad.com?subject=${subject}&body=${body}`
+    window.open(mailtoLink)
   }
 
   const handlePreviousImage = () => {
@@ -334,17 +354,31 @@ export default function ProjectDetailPage() {
                   onClick={() => handleImageClick(index)}
                 >
                   <CardContent className="p-0">
-                                         <div className="aspect-square bg-muted flex items-center justify-center overflow-hidden relative">
-                       <img
-                         src={image.url || "/placeholder.svg"}
-                         alt={image.name}
-                         className="w-full h-full object-cover object-center group-hover:scale-105 transition-transform duration-300"
-                         loading="lazy"
-                       />
-                       <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center">
-                         <Maximize2 className="w-8 h-8 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
-                       </div>
-                     </div>
+                                                             <div className="aspect-square bg-muted flex items-center justify-center overflow-hidden relative">
+                      <img
+                        src={image.url || "/placeholder.svg"}
+                        alt={image.name}
+                        className="w-full h-full object-cover object-center group-hover:scale-105 transition-transform duration-300"
+                        loading="lazy"
+                      />
+                      
+                      {/* Order Now Button - Top Left */}
+                      <Button
+                        size="sm"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          handleOrderNow(image)
+                        }}
+                        className="absolute top-2 left-2 bg-primary text-primary-foreground hover:bg-primary/90 shadow-lg z-10 text-xs px-2 py-1 h-7"
+                      >
+                        <Mail className="w-3 h-3 mr-1" />
+                        Order Now
+                      </Button>
+                      
+                      <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center">
+                        <Maximize2 className="w-8 h-8 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
+                      </div>
+                    </div>
                     <div className="p-4 space-y-3">
                       <div className="space-y-1">
                         <h4 className="text-sm font-medium text-foreground truncate">{image.name}</h4>
@@ -447,6 +481,16 @@ export default function ProjectDetailPage() {
                 className="absolute top-4 right-4 z-50 bg-black/50 text-white hover:bg-black/70 border border-white/20"
               >
                 <X className="w-6 h-6" />
+              </Button>
+
+              {/* Order Now Button - Top Left */}
+              <Button
+                size="sm"
+                onClick={() => handleOrderNow(projectImages[selectedImageIndex])}
+                className="absolute top-4 left-4 z-50 bg-primary text-primary-foreground hover:bg-primary/90 shadow-lg px-4 py-2"
+              >
+                <Mail className="w-4 h-4 mr-2" />
+                Order Now
               </Button>
 
               {/* Navigation Buttons */}
