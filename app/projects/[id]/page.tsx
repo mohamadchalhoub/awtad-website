@@ -7,7 +7,7 @@ import { useContent } from "@/hooks/use-content"
 import { SupabaseContentService } from "@/lib/supabase-content"
 import { useRouter, useParams } from "next/navigation"
 import { useEffect, useState } from "react"
-import { ArrowLeft, Calendar, Tag, Image as ImageIcon, Share2, Download, X, ChevronLeft, ChevronRight, Maximize2, Mail } from "lucide-react"
+import { ArrowLeft, Calendar, Tag, Image as ImageIcon, Share2, Download, X, ChevronLeft, ChevronRight, Maximize2, MessageCircle } from "lucide-react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 
 interface ProjectWithCover {
@@ -40,8 +40,8 @@ export default function ProjectDetailPage() {
   const [loading, setLoading] = useState(true)
   const [selectedImageIndex, setSelectedImageIndex] = useState<number | null>(null)
   const [showShareDialog, setShowShareDialog] = useState(false)
-  const [showEmailModal, setShowEmailModal] = useState(false)
-  const [emailContent, setEmailContent] = useState<{subject: string, body: string, imageUrl: string} | null>(null)
+  const [showWhatsAppModal, setShowWhatsAppModal] = useState(false)
+  const [whatsappContent, setWhatsappContent] = useState<{subject: string, body: string, imageUrl: string} | null>(null)
 
   useEffect(() => {
     const loadProjectData = async () => {
@@ -110,68 +110,71 @@ export default function ProjectDetailPage() {
   const handleOrderNow = (image: ProjectImage) => {
     console.log('handleOrderNow called with image:', image)
     
-    // Create comprehensive email content
-    const subject = `Order Request for ${image.name} - ${project?.title}`
-    const body = `Dear AWTAD Team,
+    // Create WhatsApp message content
+    const message = `Hello AWTAD Team! 🏗️
 
 I would like to place an order for the following project image:
 
-PROJECT DETAILS:
+📋 PROJECT DETAILS:
 • Project Title: ${project?.title}
 • Project Category: ${project?.category}
 • Project Year: ${project?.year}
 • Project Description: ${project?.description}
 
-IMAGE DETAILS:
+🖼️ IMAGE DETAILS:
 • Image Name: ${image.name}
 • Image Category: ${image.category}
 • Image URL: ${image.url}
 • Image Size: ${formatFileSize(image.size)}
 • Upload Date: ${new Date(image.uploadDate).toLocaleDateString()}
 
-ORDER REQUEST:
-Please provide me with the following information:
+💼 ORDER REQUEST:
+Please provide me with:
 1. Pricing for this image
 2. Available formats and resolutions
 3. Licensing terms and usage rights
 4. Delivery timeline
 5. Payment methods accepted
 
-MY CONTACT INFORMATION:
+📞 MY CONTACT INFORMATION:
 • Name: [Please fill in your name]
 • Email: [Please fill in your email]
 • Phone: [Please fill in your phone number]
 • Company/Organization: [Please fill in if applicable]
 
-IMPORTANT: Please manually attach the selected image to this email for reference.
+🔗 Project URL: ${window.location.href}
 
-I look forward to hearing from you.
+Thank you! I look forward to hearing from you.`
 
-Best regards,
-[Your Name]
-
----
-This order request was generated from the AWTAD Steel Engineering website.
-Project: ${project?.title}
-Image: ${image.name}
-URL: ${window.location.href}`
-
-    // Try to open email client with mailto link
-    const mailtoLink = `mailto:info@awtad.com?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`
+    // Create WhatsApp link
+    const whatsappNumber = '+96171175906'
+    const encodedMessage = encodeURIComponent(message)
+    const whatsappLink = `https://wa.me/${whatsappNumber}?text=${encodedMessage}`
     
+    console.log('Opening WhatsApp link:', whatsappLink)
+    
+    // Open WhatsApp in new tab
     try {
-      const emailWindow = window.open(mailtoLink)
+      const whatsappWindow = window.open(whatsappLink, '_blank')
       
-      // If mailto doesn't work, show the email modal
-      if (!emailWindow) {
-        setEmailContent({ subject, body, imageUrl: image.url })
-        setShowEmailModal(true)
+      if (!whatsappWindow) {
+        // Fallback: show WhatsApp modal with instructions
+        setWhatsappContent({ 
+          subject: `WhatsApp Order Request for ${image.name}`, 
+          body: message, 
+          imageUrl: image.url 
+        })
+        setShowWhatsAppModal(true)
       }
     } catch (error) {
-      console.error('Error opening email client:', error)
-      // Fallback to email modal
-      setEmailContent({ subject, body, imageUrl: image.url })
-      setShowEmailModal(true)
+      console.error('Error opening WhatsApp:', error)
+      // Fallback to modal
+      setWhatsappContent({ 
+        subject: `WhatsApp Order Request for ${image.name}`, 
+        body: message, 
+        imageUrl: image.url 
+      })
+      setShowWhatsAppModal(true)
     }
   }
 
@@ -421,8 +424,8 @@ URL: ${window.location.href}`
                         }}
                         className="absolute top-2 left-2 bg-primary text-primary-foreground hover:bg-primary/90 shadow-lg z-50 text-xs px-2 py-1 h-7 border-2 border-white hover:scale-105 transition-transform"
                       >
-                        <Mail className="w-3 h-3 mr-1" />
-                        Order Now
+                                  <MessageCircle className="w-3 h-3 mr-1" />
+          Order via WhatsApp
                       </Button>
                       
                       <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center">
@@ -542,8 +545,8 @@ URL: ${window.location.href}`
                 onClick={() => handleOrderNow(projectImages[selectedImageIndex])}
                 className="absolute top-4 left-4 z-50 bg-primary text-primary-foreground hover:bg-primary/90 shadow-lg px-4 py-2"
               >
-                <Mail className="w-4 h-4 mr-2" />
-                Order Now
+                <MessageCircle className="w-4 h-4 mr-2" />
+                Order via WhatsApp
               </Button>
 
               {/* Navigation Buttons */}
@@ -612,53 +615,53 @@ URL: ${window.location.href}`
         </DialogContent>
       </Dialog>
 
-      {/* Email Order Modal */}
-      <Dialog open={showEmailModal} onOpenChange={setShowEmailModal}>
+      {/* WhatsApp Order Modal */}
+      <Dialog open={showWhatsAppModal} onOpenChange={setShowWhatsAppModal}>
         <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Order Request Email</DialogTitle>
+            <DialogTitle>WhatsApp Order Request</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
-            <div className="p-4 bg-muted rounded-lg">
-              <h4 className="font-semibold mb-2">Email Details:</h4>
-              <p><strong>To:</strong> info@awtad.com</p>
-              <p><strong>Subject:</strong> {emailContent?.subject}</p>
+            <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
+              <h4 className="font-semibold text-green-800 mb-2">📱 WhatsApp Details:</h4>
+              <p><strong>To:</strong> +96171175906 (AWTAD Team)</p>
+              <p><strong>Platform:</strong> WhatsApp</p>
             </div>
             
             <div>
-              <h4 className="font-semibold mb-2">Email Body:</h4>
+              <h4 className="font-semibold mb-2">WhatsApp Message:</h4>
               <div className="p-3 bg-background border rounded-lg max-h-60 overflow-y-auto">
-                <pre className="whitespace-pre-wrap text-sm">{emailContent?.body}</pre>
+                <pre className="whitespace-pre-wrap text-sm">{whatsappContent?.body}</pre>
               </div>
             </div>
 
             <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
-              <h4 className="font-semibold text-blue-800 mb-2">📎 Image to Attach:</h4>
+              <h4 className="font-semibold text-blue-800 mb-2">🖼️ Image Reference:</h4>
               <p className="text-sm text-blue-700 mb-2">
-                <strong>Image URL:</strong> {emailContent?.imageUrl}
+                <strong>Image URL:</strong> {whatsappContent?.imageUrl}
               </p>
               <p className="text-sm text-blue-700">
-                Please manually attach this image to your email for reference.
+                You can share this image URL in your WhatsApp message for reference.
               </p>
             </div>
 
             <div className="flex space-x-2">
               <Button 
                 onClick={() => {
-                  // Copy email content to clipboard
-                  if (emailContent) {
-                    const fullEmail = `To: info@awtad.com\nSubject: ${emailContent.subject}\n\n${emailContent.body}\n\nImage URL: ${emailContent.imageUrl}`
-                    navigator.clipboard.writeText(fullEmail)
-                    alert('Email content copied to clipboard!')
+                  // Copy WhatsApp message to clipboard
+                  if (whatsappContent) {
+                    const fullMessage = `${whatsappContent.body}\n\nImage URL: ${whatsappContent.imageUrl}`
+                    navigator.clipboard.writeText(fullMessage)
+                    alert('WhatsApp message copied to clipboard!')
                   }
                 }}
                 className="flex-1"
               >
-                Copy Email Content
+                Copy WhatsApp Message
               </Button>
               <Button
                 variant="outline"
-                onClick={() => setShowEmailModal(false)}
+                onClick={() => setShowWhatsAppModal(false)}
                 className="flex-1"
               >
                 Close
