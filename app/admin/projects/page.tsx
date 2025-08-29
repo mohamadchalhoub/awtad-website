@@ -79,9 +79,7 @@ const AdminProjectsPage = React.memo(function AdminProjectsPage() {
 
   useEffect(() => {
     const timeoutId = setTimeout(() => {
-      if (loading) {
-        console.warn('Loading timeout reached, but continuing to load data...')
-      }
+      // Loading timeout reached, but continuing to load data...
     }, 30000)
 
     loadData()
@@ -93,7 +91,7 @@ const AdminProjectsPage = React.memo(function AdminProjectsPage() {
     try {
       setLoading(true)
       setError(null)
-      console.log('Loading data from Supabase...')
+      // Loading data from Supabase...
       
       // Don't clear cache on every load - only clear when needed
       // SupabaseContentService.clearProjectCache()
@@ -115,9 +113,9 @@ const AdminProjectsPage = React.memo(function AdminProjectsPage() {
       setImages(imagesData)
       setCategories(categoriesData)
       
-      console.log('Data loading completed successfully')
+      // Data loading completed successfully
     } catch (error) {
-      console.error('Error loading data:', error)
+      // Error loading data: error
       const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred'
       setProjects([])
       setImages([])
@@ -168,7 +166,7 @@ const AdminProjectsPage = React.memo(function AdminProjectsPage() {
         await loadData()
       }
     } catch (error) {
-      console.error('Error adding project:', error)
+      // Error adding project: error
     }
   }
 
@@ -198,7 +196,7 @@ const AdminProjectsPage = React.memo(function AdminProjectsPage() {
         }
       }
 
-             console.log('Updating project with featured status:', editProject.featured)
+             // Updating project with featured status: editProject.featured
        const result = await SupabaseContentService.updateProject(editingProject.id, {
          title: editProject.title,
          category: categoryToUse,
@@ -215,7 +213,7 @@ const AdminProjectsPage = React.memo(function AdminProjectsPage() {
         await loadData()
       }
     } catch (error) {
-      console.error('Error updating project:', error)
+      // Error updating project: error
     }
   }
 
@@ -228,7 +226,7 @@ const AdminProjectsPage = React.memo(function AdminProjectsPage() {
           await loadData()
         }
       } catch (error) {
-        console.error('Error deleting project:', error)
+        // Error deleting project: error
       }
     }
   }
@@ -250,7 +248,7 @@ const AdminProjectsPage = React.memo(function AdminProjectsPage() {
         await loadData()
       }
     } catch (error) {
-      console.error('Error updating image:', error)
+      // Error updating image: error
     }
   }
 
@@ -263,7 +261,7 @@ const AdminProjectsPage = React.memo(function AdminProjectsPage() {
           await loadData()
         }
       } catch (error) {
-        console.error('Error deleting image:', error)
+        // Error deleting image: error
       }
     }
   }
@@ -280,7 +278,7 @@ const AdminProjectsPage = React.memo(function AdminProjectsPage() {
         setUploadError('Failed to set cover image. Please try again.')
       }
     } catch (error) {
-      console.error('Error setting cover image:', error)
+      // Error setting cover image: error
       setUploadError('Error setting cover image: ' + error)
     }
   }
@@ -295,13 +293,13 @@ const AdminProjectsPage = React.memo(function AdminProjectsPage() {
         await loadData()
       }
     } catch (error) {
-      console.error('Error removing cover image:', error)
+      // Error removing cover image: error
     }
   }
 
   const openEditDialog = (project: Tables<'projects'>) => {
-    console.log('Opening edit dialog for project:', project)
-    console.log('Project featured status:', (project as any).featured)
+    // Opening edit dialog for project
+    // Project featured status: (project as any).featured
     setEditingProject(project)
     setEditProject({
       title: project.title,
@@ -578,7 +576,7 @@ const AdminProjectsPage = React.memo(function AdminProjectsPage() {
                                 decoding="async"
                                 style={{ objectPosition: 'center center' }}
                                 onError={(e) => {
-                                  console.error(`Failed to load cover image: ${coverImage.name}`, e)
+                                  // Failed to load cover image
                                   e.currentTarget.style.display = 'none'
                                   e.currentTarget.nextElementSibling?.classList.remove('hidden')
                                 }}
@@ -784,7 +782,7 @@ const AdminProjectsPage = React.memo(function AdminProjectsPage() {
                                     setUploadError('Failed to upload image. Please try again.')
                                   }
                                 } catch (error) {
-                                  console.error('Error creating image:', error)
+                                  // Error creating image: error
                                   setUploadError('Error uploading image: ' + error)
                                 }
                               }}
@@ -832,11 +830,11 @@ const AdminProjectsPage = React.memo(function AdminProjectsPage() {
                                       alt={image.name} 
                                       className="w-full h-full object-cover object-center" 
                                       loading="lazy"
-                                      onError={(e) => {
-                                        console.error(`Failed to load image: ${image.name}`, e)
-                                        e.currentTarget.style.display = 'none'
-                                        e.currentTarget.nextElementSibling?.classList.remove('hidden')
-                                      }}
+                                                                          onError={(e) => {
+                                      // Failed to load image
+                                      e.currentTarget.style.display = 'none'
+                                      e.currentTarget.nextElementSibling?.classList.remove('hidden')
+                                    }}
                                     />
                                   ) : null}
                                   <div className={`absolute inset-0 flex items-center justify-center text-muted-foreground ${image.url ? 'hidden' : ''}`}>

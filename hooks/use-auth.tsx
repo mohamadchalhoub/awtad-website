@@ -26,7 +26,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setUser(currentUser)
         setIsAdmin(currentUser?.role === 'admin' || false)
       } catch (error) {
-        console.error('Auth check error:', error)
+        // Auth check error
       } finally {
         setIsLoading(false)
       }
@@ -62,7 +62,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
       return false
     } catch (error) {
-      console.error('Login error:', error)
+      // Login error
       return false
     } finally {
       setIsLoading(false)
@@ -75,7 +75,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(null)
       setIsAdmin(false)
     } catch (error) {
-      console.error('Logout error:', error)
+      // Logout error
     }
   }
 

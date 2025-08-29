@@ -25,12 +25,9 @@ export function SupabaseStatus() {
     
     // Log environment variable status
     if (!url || !key) {
-      console.error('❌ Missing Supabase environment variables:')
-      console.error('   NEXT_PUBLIC_SUPABASE_URL:', url ? 'SET' : 'MISSING')
-      console.error('   NEXT_PUBLIC_SUPABASE_ANON_KEY:', key ? 'SET' : 'MISSING')
-      console.error('   Please create a .env.local file with your Supabase credentials')
+              // Missing Supabase environment variables
     } else {
-      console.log('✅ Supabase environment variables are set')
+              // Supabase environment variables are set
     }
   }
 

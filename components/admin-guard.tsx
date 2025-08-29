@@ -14,7 +14,7 @@ export function AdminGuard({ children }: AdminGuardProps) {
 
   useEffect(() => {
     if (!isLoading && !user) {
-      console.log('AdminGuard: No user found, redirecting to login')
+      // AdminGuard: No user found, redirecting to login
       router.push("/admin/login")
     }
   }, [user, isLoading, router])

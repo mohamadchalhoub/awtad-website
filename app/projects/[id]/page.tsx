@@ -75,7 +75,7 @@ export default function ProjectDetailPage() {
             
             setProjectImages(transformedImages)
           } catch (error) {
-            console.error('Error loading project images:', error)
+            // Error loading project images
             setProjectImages([])
           }
         }
@@ -111,7 +111,7 @@ export default function ProjectDetailPage() {
   }
 
   const handleOrderNow = (image: ProjectImage) => {
-    console.log('handleOrderNow called with image:', image)
+          // handleOrderNow called with image
     
     // Create clean WhatsApp message content
     const message = `Hello AWTAD Team! 🏗️
@@ -140,7 +140,7 @@ Thank you! I look forward to hearing from you.`
     const encodedMessage = encodeURIComponent(message)
     const whatsappLink = `https://wa.me/${whatsappNumber}?text=${encodedMessage}`
     
-    console.log('Opening WhatsApp link:', whatsappLink)
+          // Opening WhatsApp link
     
     // Check if we're on mobile or desktop
     const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
@@ -160,7 +160,7 @@ Thank you! I look forward to hearing from you.`
           setShowWhatsAppModal(true)
         }
       } catch (error) {
-        console.error('Error opening WhatsApp on mobile:', error)
+        // Error opening WhatsApp on mobile
         setWhatsappContent({ 
           subject: `WhatsApp Order Request for ${image.name}`, 
           body: message, 
@@ -219,7 +219,7 @@ Thank you! I look forward to hearing from you.`
           url: window.location.href,
         })
       } catch (error) {
-        console.log('Error sharing:', error)
+        // Error sharing
         setShowShareDialog(true)
       }
     } else {
@@ -237,7 +237,7 @@ Thank you! I look forward to hearing from you.`
       })
       setShowShareDialog(false)
     } catch (error) {
-      console.error('Failed to copy:', error)
+      // Failed to copy
     }
   }
 
@@ -275,7 +275,7 @@ Thank you! I look forward to hearing from you.`
       document.body.removeChild(link)
       window.URL.revokeObjectURL(url)
           } catch (error) {
-        console.error('Error downloading album:', error)
+        // Error downloading album
         toast({
           title: "Download Failed",
           description: "Failed to download album. Please try again.",

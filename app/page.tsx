@@ -53,7 +53,7 @@ export default function HomePage() {
                 
                 coverImageUrl = imageData?.url
               } catch (error) {
-                console.error(`Error fetching cover image for project ${project.id}:`, error)
+                // Error fetching cover image for project
               }
             }
             
@@ -71,7 +71,7 @@ export default function HomePage() {
         
         setProjectsWithCover(projectsWithCoverImages)
       } catch (error) {
-        console.error('Error loading featured projects:', error)
+        // Error loading featured projects
       }
     }
 

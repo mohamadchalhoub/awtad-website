@@ -51,7 +51,7 @@ export default function ProjectsPage() {
         const categoriesData = await SupabaseContentService.getAllCategories()
         setCategories(categoriesData)
       } catch (error) {
-        console.error('Error loading categories:', error)
+        // Error loading categories
         // Provide fallback categories so the page can still function
         const fallbackCategories = [
           { id: 1, name: 'Commercial', description: 'Commercial projects', color: '#3B82F6', icon: '🏢', created_at: new Date().toISOString(), is_active: true },
@@ -102,7 +102,7 @@ export default function ProjectsPage() {
           url: `${window.location.origin}/projects/${project.id}`,
         })
       } catch (error) {
-        console.log('Error sharing:', error)
+        // Error sharing
         setShowShareDialog(true)
       }
     } else {
@@ -123,7 +123,7 @@ export default function ProjectsPage() {
       setShowShareDialog(false)
       setSelectedProject(null)
     } catch (error) {
-      console.error('Failed to copy:', error)
+      // Failed to copy
     }
   }
 
@@ -168,7 +168,7 @@ export default function ProjectsPage() {
       document.body.removeChild(link)
       window.URL.revokeObjectURL(url)
           } catch (error) {
-        console.error('Error downloading album:', error)
+        // Error downloading album
         toast({
           title: "Download Failed",
           description: "Failed to download album. Please try again.",

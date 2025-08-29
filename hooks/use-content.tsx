@@ -193,7 +193,7 @@ export function useContentAdmin() {
         window.dispatchEvent(new CustomEvent('contentUpdated'))
       }
     } catch (error) {
-      console.error('Error refreshing content:', error)
+      // Error refreshing content
     } finally {
       setIsRefreshing(false)
     }

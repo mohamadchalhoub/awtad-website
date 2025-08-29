@@ -39,17 +39,17 @@ export function DatabaseStatus() {
 
       for (const table of tables) {
         try {
-          console.log(`Testing table: ${table}`)
+          // Testing table
           const { data: tableData, error: tableError } = await supabase.from(table).select('count').limit(1)
-          console.log(`Table ${table} result:`, { data: tableData, error: tableError, success: !tableError })
+                      // Table result
           tableResults[table] = !tableError
         } catch (err) {
-          console.error(`Table ${table} error:`, err)
+                      // Table error
           tableResults[table] = false
         }
       }
       
-      console.log('Final table results:', tableResults)
+              // Final table results
 
       setTableStatus(tableResults)
       setStatus('Database check completed!')

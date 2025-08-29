@@ -14,7 +14,7 @@ export function ContentTest() {
 
   const fetchData = async () => {
     try {
-      console.log('Fetching fresh data...')
+      // Fetching fresh data...
       const projects = await SupabaseContentService.getAllProjects()
       const images = await SupabaseContentService.getAllImages()
       
@@ -22,19 +22,19 @@ export function ContentTest() {
       setImageCount(images.length)
       setLastFetch(new Date())
       
-      console.log(`Fetched ${projects.length} projects and ${images.length} images`)
+              // Fetched projects and images
     } catch (error) {
-      console.error('Error fetching data:', error)
+              // Error fetching data
     }
   }
 
   const clearCacheAndFetch = async () => {
     try {
-      console.log('Clearing cache and fetching fresh data...')
+              // Clearing cache and fetching fresh data...
       SupabaseContentService.clearProjectCache()
       await fetchData()
     } catch (error) {
-      console.error('Error clearing cache and fetching:', error)
+              // Error clearing cache and fetching
     }
   }
 

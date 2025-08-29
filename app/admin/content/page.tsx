@@ -121,11 +121,11 @@ export default function AdminContentPage() {
   const loadContent = async () => {
     try {
       setLoading(true)
-      console.log('Loading content from database...')
+      // Loading content from database...
       
       // Load homepage content
       const homepageData = await SupabaseContentService.getHomepageContent()
-      console.log('Homepage data loaded:', homepageData)
+              // Homepage data loaded
       
       if (homepageData.hero) {
         setHomepageContent(prev => ({
@@ -146,7 +146,7 @@ export default function AdminContentPage() {
 
       // Load about content
       const aboutData = await SupabaseContentService.getAboutContent()
-      console.log('About data loaded:', aboutData)
+              // About data loaded
       
       if (aboutData.story?.content) {
         setAboutContent(prev => ({
@@ -169,7 +169,7 @@ export default function AdminContentPage() {
         }))
       }
     } catch (error) {
-      console.error('Error loading content:', error)
+      // Error loading content
     } finally {
       setLoading(false)
     }
@@ -178,41 +178,41 @@ export default function AdminContentPage() {
   const saveAllChanges = async () => {
     try {
       setSaving(true)
-      console.log('Starting to save content...')
+      // Starting to save content...
       
       // Save homepage content
-      console.log('Saving hero section...')
+              // Saving hero section...
       const heroResult = await SupabaseContentService.updateHomepageContent('hero', {
         title: homepageContent.hero.title,
         subtitle: homepageContent.hero.subtitle,
         description: homepageContent.hero.description
       })
-      console.log('Hero save result:', heroResult)
+              // Hero save result
       
-      console.log('Saving services section...')
+              // Saving services section...
       const servicesResult = await SupabaseContentService.updateHomepageContent('services', {
         services: homepageContent.services
       })
-      console.log('Services save result:', servicesResult)
+              // Services save result
 
       // Save about content
-      console.log('Saving story section...')
+              // Saving story section...
       const storyResult = await SupabaseContentService.updateAboutContent('story', {
         content: aboutContent.story.content
       })
-      console.log('Story save result:', storyResult)
+              // Story save result
       
-      console.log('Saving values section...')
+              // Saving values section...
       const valuesResult = await SupabaseContentService.updateAboutContent('values', {
         values: aboutContent.values
       })
-      console.log('Values save result:', valuesResult)
+              // Values save result
       
-      console.log('Saving team section...')
+              // Saving team section...
       const teamResult = await SupabaseContentService.updateAboutContent('team', {
         team: aboutContent.team
       })
-      console.log('Team save result:', teamResult)
+              // Team save result
 
       // Check each result individually and provide specific feedback
       const results = [
@@ -241,11 +241,11 @@ export default function AdminContentPage() {
         await loadContent()
       } else {
         alert(`Failed to save: ${failedSections.join(', ')}. Please check the console for details.`)
-        console.error('Failed sections:', failedSections)
-        console.error('Individual results:', results)
+        // Failed sections: failedSections
+        // Individual results: results
       }
     } catch (error) {
-      console.error('Error saving content:', error)
+              // Error saving content
       alert('Error saving changes. Please try again.')
     } finally {
       setSaving(false)
