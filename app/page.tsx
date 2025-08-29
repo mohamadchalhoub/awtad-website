@@ -12,6 +12,7 @@ import { useState, useEffect } from "react"
 import Link from "next/link"
 import { ImageService } from "@/lib/images"
 import { useRouter } from "next/navigation"
+import { supabase } from "@/lib/supabase"
 
 
 interface ProjectWithCover {
@@ -29,12 +30,62 @@ export default function HomePage() {
   const router = useRouter()
   const [projectsWithCover, setProjectsWithCover] = useState<ProjectWithCover[]>([])
 
-    useEffect(() => {
-    if (content?.projects) {
-      // Projects already have coverImageUrl from the content hook
-      setProjectsWithCover(content.projects)
+  useEffect(() => {
+    const loadFeaturedProjects = async () => {
+      try {
+        const { SupabaseContentService } = await import('@/lib/supabase-content')
+        
+        // Load featured projects for homepage
+        const featuredProjects = await SupabaseContentService.getFeaturedProjects(6)
+        
+        // Get cover images for projects that have them
+        const projectsWithCoverImages = await Promise.all(
+          featuredProjects.map(async (project) => {
+            let coverImageUrl: string | undefined = undefined
+            
+            if (project.cover_image_id) {
+              try {
+                const { data: imageData } = await supabase
+                  .from('images')
+                  .select('url')
+                  .eq('id', project.cover_image_id)
+                  .single()
+                
+                coverImageUrl = imageData?.url
+              } catch (error) {
+                console.error(`Error fetching cover image for project ${project.id}:`, error)
+              }
+            }
+            
+            return {
+              id: project.id,
+              title: project.title,
+              category: project.category,
+              description: project.description,
+              year: project.year,
+              coverImageId: project.cover_image_id || undefined,
+              coverImageUrl: coverImageUrl
+            }
+          })
+        )
+        
+        setProjectsWithCover(projectsWithCoverImages)
+      } catch (error) {
+        console.error('Error loading featured projects:', error)
+      }
     }
+
+    // Always load featured projects for homepage
+    loadFeaturedProjects()
   }, [content])
+
+  // Remove this useEffect - we only want featured projects on homepage
+  // useEffect(() => {
+  //   if (content?.projects) {
+  //     // Projects already have coverImageUrl from the content hook
+  //     setProjectsWithCover(content.projects)
+  //   }
+  // }, [content])
 
   // Refresh content when the page becomes visible (disabled to prevent unwanted refreshes)
   // useEffect(() => {

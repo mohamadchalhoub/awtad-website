@@ -41,14 +41,16 @@ const AdminProjectsPage = React.memo(function AdminProjectsPage() {
     title: '',
     category: '',
     year: '',
-    description: ''
+    description: '',
+    featured: false
   })
 
   const [editProject, setEditProject] = useState({
     title: '',
     category: '',
     year: '',
-    description: ''
+    description: '',
+    featured: false
   })
 
   const [editImage, setEditImage] = useState({
@@ -155,12 +157,13 @@ const AdminProjectsPage = React.memo(function AdminProjectsPage() {
         category: categoryToUse,
         year: newProject.year,
         description: newProject.description,
-        is_active: true
+        is_active: true,
+        featured: newProject.featured
       })
 
       if (result) {
         setShowAddDialog(false)
-        setNewProject({ title: '', category: '', year: '', description: '' })
+        setNewProject({ title: '', category: '', year: '', description: '', featured: false })
         SupabaseContentService.clearProjectCache()
         await loadData()
       }
@@ -195,17 +198,19 @@ const AdminProjectsPage = React.memo(function AdminProjectsPage() {
         }
       }
 
-      const result = await SupabaseContentService.updateProject(editingProject.id, {
-        title: editProject.title,
-        category: categoryToUse,
-        year: editProject.year,
-        description: editProject.description
-      })
+             console.log('Updating project with featured status:', editProject.featured)
+       const result = await SupabaseContentService.updateProject(editingProject.id, {
+         title: editProject.title,
+         category: categoryToUse,
+         year: editProject.year,
+         description: editProject.description,
+         featured: editProject.featured
+       })
 
       if (result) {
         setShowEditDialog(false)
         setEditingProject(null)
-        setEditProject({ title: '', category: '', year: '', description: '' })
+        setEditProject({ title: '', category: '', year: '', description: '', featured: false })
         SupabaseContentService.clearProjectCache()
         await loadData()
       }
@@ -295,12 +300,15 @@ const AdminProjectsPage = React.memo(function AdminProjectsPage() {
   }
 
   const openEditDialog = (project: Tables<'projects'>) => {
+    console.log('Opening edit dialog for project:', project)
+    console.log('Project featured status:', (project as any).featured)
     setEditingProject(project)
     setEditProject({
       title: project.title,
       category: project.category,
       year: project.year,
-      description: project.description
+      description: project.description,
+      featured: Boolean((project as any).featured)
     })
     setShowEditDialog(true)
   }
@@ -470,6 +478,21 @@ const AdminProjectsPage = React.memo(function AdminProjectsPage() {
                         placeholder="Project description"
                         rows={3}
                       />
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <input
+                        id="featured"
+                        type="checkbox"
+                        checked={newProject.featured}
+                        onChange={(e) => setNewProject({ ...newProject, featured: e.target.checked })}
+                        className="w-4 h-4 text-primary bg-background border-border rounded focus:ring-primary focus:ring-offset-0"
+                      />
+                      <Label htmlFor="featured" className="text-sm font-medium">
+                        ⭐ Featured Project
+                      </Label>
+                      <div className="text-xs text-muted-foreground ml-2">
+                        (Will appear on homepage)
+                      </div>
                     </div>
                     <div className="flex space-x-2">
                       <Button onClick={handleAddProject} className="flex-1">
@@ -698,6 +721,21 @@ const AdminProjectsPage = React.memo(function AdminProjectsPage() {
                     onChange={(e) => setEditProject({ ...editProject, description: e.target.value })}
                     rows={3}
                   />
+                </div>
+                <div className="flex items-center space-x-2">
+                  <input
+                    id="edit-featured"
+                    type="checkbox"
+                    checked={editProject.featured}
+                    onChange={(e) => setEditProject({ ...editProject, featured: e.target.checked })}
+                    className="w-4 h-4 text-primary bg-background border-border rounded focus:ring-primary focus:ring-offset-0"
+                  />
+                  <Label htmlFor="edit-featured" className="text-sm font-medium">
+                    ⭐ Featured Project
+                  </Label>
+                  <div className="text-xs text-muted-foreground ml-2">
+                    (Will appear on homepage)
+                  </div>
                 </div>
                 <div className="flex space-x-2">
                   <Button onClick={handleEditProject} className="flex-1">

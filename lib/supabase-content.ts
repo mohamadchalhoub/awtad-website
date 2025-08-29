@@ -44,6 +44,12 @@ export class SupabaseContentService {
   static clearProjectCache() {
     this.cache.delete('all_projects')
     this.cache.delete('all_images')
+    // Clear featured projects cache as well
+    for (const [key] of this.cache.entries()) {
+      if (key.startsWith('featured_projects_')) {
+        this.cache.delete(key)
+      }
+    }
   }
 
   // Test database connection - removed from main flow for performance
@@ -158,6 +164,37 @@ export class SupabaseContentService {
     // Clear cache after deleting project
     this.clearProjectCache()
     return true
+  }
+
+  // Get featured projects for homepage
+  static async getFeaturedProjects(limit: number = 6): Promise<Tables<'projects'>[]> {
+    const cacheKey = `featured_projects_${limit}`
+    const cachedData = this.getCachedData(cacheKey)
+    if (cachedData) {
+      return cachedData
+    }
+
+    try {
+      const { data, error } = await supabase
+        .from('projects')
+        .select('*')
+        .eq('is_active', true)
+        .eq('featured', true)
+        .order('created_at', { ascending: false })
+        .limit(limit)
+
+      if (error) {
+        console.error('Error fetching featured projects:', error)
+        return []
+      }
+
+      const result = data || []
+      this.setCachedData(cacheKey, result)
+      return result
+    } catch (error) {
+      console.error('Error in getFeaturedProjects:', error)
+      return []
+    }
   }
 
   // Images
@@ -559,5 +596,66 @@ export class SupabaseContentService {
     }
 
     return true
+  }
+
+  // Get projects with cover images (for admin page)
+  static async getProjectsWithCoverImages(): Promise<Array<Tables<'projects'> & { cover_image_url?: string }>> {
+    const cacheKey = 'projects_with_covers'
+    const cachedData = this.getCachedData(cacheKey)
+    if (cachedData) {
+      return cachedData
+    }
+
+    try {
+      // First, get all projects
+      const { data: projectsData, error: projectsError } = await supabase
+        .from('projects')
+        .select('*')
+        .eq('is_active', true)
+        .order('created_at', { ascending: false })
+
+      if (projectsError) {
+        console.error('Error fetching projects:', projectsError)
+        return []
+      }
+
+      if (!projectsData || projectsData.length === 0) {
+        return []
+      }
+
+      // Then, get cover images for projects that have them
+      const projectIdsWithCover = projectsData
+        .filter(project => project.cover_image_id)
+        .map(project => project.cover_image_id)
+
+      let coverImages: any[] = []
+      if (projectIdsWithCover.length > 0) {
+        const { data: imagesData, error: imagesError } = await supabase
+          .from('images')
+          .select('id, url')
+          .in('id', projectIdsWithCover)
+
+        if (imagesError) {
+          console.error('Error fetching cover images:', imagesError)
+        } else {
+          coverImages = imagesData || []
+        }
+      }
+
+      // Create a map for quick lookup
+      const coverImageMap = new Map(coverImages.map(img => [img.id, img.url]))
+
+      // Combine projects with their cover images
+      const result = projectsData.map(project => ({
+        ...project,
+        cover_image_url: project.cover_image_id ? coverImageMap.get(project.cover_image_id) : undefined
+      }))
+
+      this.setCachedData(cacheKey, result)
+      return result
+    } catch (error) {
+      console.error('Error in getProjectsWithCoverImages:', error)
+      return []
+    }
   }
 }
