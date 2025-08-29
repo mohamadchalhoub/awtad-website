@@ -159,7 +159,7 @@ const AdminProjectsPage = React.memo(function AdminProjectsPage() {
         description: newProject.description,
         is_active: true,
         featured: newProject.featured
-      })
+      } as any)
 
       if (result) {
         setShowAddDialog(false)
@@ -205,7 +205,7 @@ const AdminProjectsPage = React.memo(function AdminProjectsPage() {
          year: editProject.year,
          description: editProject.description,
          featured: editProject.featured
-       })
+       } as any)
 
       if (result) {
         setShowEditDialog(false)
