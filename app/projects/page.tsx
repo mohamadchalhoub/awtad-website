@@ -1,6 +1,7 @@
 "use client"
 
 import { Navigation } from "@/components/navigation"
+import { Footer } from "@/components/footer"
 import { ProjectGallery } from "@/components/project-gallery"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -11,6 +12,7 @@ import { useRouter } from "next/navigation"
 import { useState, useEffect } from "react"
 import { Share2, Download, Maximize2, Filter } from "lucide-react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { useToast } from "@/hooks/use-toast"
 import type { Tables } from "@/lib/supabase"
 
 interface ProjectWithCover {
@@ -25,6 +27,7 @@ interface ProjectWithCover {
 
 export default function ProjectsPage() {
   const { content, isLoading, refreshContent } = useContent()
+  const { toast } = useToast()
   const router = useRouter()
   const [allProjects, setAllProjects] = useState<ProjectWithCover[]>([])
   const [projectsWithCover, setProjectsWithCover] = useState<ProjectWithCover[]>([])
@@ -112,7 +115,11 @@ export default function ProjectsPage() {
     
     try {
       await navigator.clipboard.writeText(`${window.location.origin}/projects/${selectedProject.id}`)
-      alert('Link copied to clipboard!')
+      toast({
+        title: "Link Copied!",
+        description: "Project link has been copied to your clipboard.",
+        variant: "default",
+      })
       setShowShareDialog(false)
       setSelectedProject(null)
     } catch (error) {
@@ -130,7 +137,11 @@ export default function ProjectsPage() {
       )
 
       if (projectImages.length === 0) {
-        alert('No images to download')
+        toast({
+          title: "No Images Available",
+          description: "This project doesn't have any images to download.",
+          variant: "destructive",
+        })
         return
       }
 
@@ -156,10 +167,14 @@ export default function ProjectsPage() {
       link.click()
       document.body.removeChild(link)
       window.URL.revokeObjectURL(url)
-    } catch (error) {
-      console.error('Error downloading album:', error)
-      alert('Failed to download album. Please try again.')
-    }
+          } catch (error) {
+        console.error('Error downloading album:', error)
+        toast({
+          title: "Download Failed",
+          description: "Failed to download album. Please try again.",
+          variant: "destructive",
+        })
+      }
   }
 
   if (isLoading) {
@@ -348,17 +363,7 @@ export default function ProjectsPage() {
         </div>
       </section>
 
-      <footer className="py-12 px-6 bg-secondary/50 border-t border-border">
-        <div className="max-w-7xl mx-auto text-center">
-          <div className="flex items-center justify-center space-x-2 mb-4">
-            <div className="w-6 h-6 bg-primary rounded-sm flex items-center justify-center">
-              <span className="text-primary-foreground font-mono font-bold text-xs">A</span>
-            </div>
-            <span className="text-lg font-mono font-bold text-primary">AWTAD</span>
-          </div>
-          <p className="text-sm text-muted-foreground">© 2024 AWTAD. Advanced Steel Design & Engineering Solutions.</p>
-        </div>
-      </footer>
+      <Footer />
 
       {/* Share Dialog */}
       <Dialog open={showShareDialog} onOpenChange={setShowShareDialog}>

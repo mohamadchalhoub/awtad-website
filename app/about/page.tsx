@@ -1,17 +1,20 @@
 "use client"
 
 import { Navigation } from "@/components/navigation"
+import { Footer } from "@/components/footer"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { useContent } from "@/hooks/use-content"
+import { useToast } from "@/hooks/use-toast"
 import { useState } from "react"
 import { Send, X } from "lucide-react"
 
 export default function AboutPage() {
   const { content, isLoading } = useContent()
+  const { toast } = useToast()
   const [showContactForm, setShowContactForm] = useState(false)
   const [formData, setFormData] = useState({
     firstName: "",
@@ -32,9 +35,36 @@ export default function AboutPage() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    // Here you would typically send the form data to your backend
-    console.log("Form submitted:", formData)
-    alert("Thank you for your message! We'll get back to you soon.")
+    
+    // Create email content
+    const subject = `New Project Inquiry from ${formData.firstName} ${formData.lastName}`
+    const body = `New project inquiry received:
+
+Name: ${formData.firstName} ${formData.lastName}
+Email: ${formData.email}
+Phone: ${formData.phone}
+Project Type: ${formData.projectType}
+
+Message:
+${formData.message}
+
+---
+This message was sent from the AWTAD website contact form.`
+
+    // Create mailto link to send to husseinnouraldeen5@gmail.com
+    const mailtoLink = `mailto:husseinnouraldeen5@gmail.com?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`
+    
+    // Open default email client
+    window.open(mailtoLink)
+    
+    // Show success toast
+    toast({
+      title: "Message Sent Successfully!",
+      description: "Your email client will open to send the message to our team.",
+      variant: "default",
+    })
+    
+    // Reset form
     setFormData({
       firstName: "",
       lastName: "",
@@ -165,143 +195,134 @@ export default function AboutPage() {
 
       {/* Contact Form Modal */}
       {showContactForm && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-          <Card className="w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-            <CardContent className="p-8">
-              <div className="flex justify-between items-center mb-6">
-                <h3 className="text-2xl font-mono font-bold text-foreground">Start Your Project</h3>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setShowContactForm(false)}
-                  className="h-8 w-8 p-0"
-                >
-                  <X className="h-4 w-4" />
-                </Button>
-              </div>
-              
-              <form onSubmit={handleSubmit} className="space-y-6">
-                <div className="grid md:grid-cols-2 gap-4">
-                  <div>
-                    <Label htmlFor="firstName">First Name *</Label>
-                    <Input 
-                      id="firstName" 
-                      name="firstName"
-                      value={formData.firstName}
-                      onChange={handleInputChange}
-                      placeholder="John" 
-                      className="mt-1" 
-                      required
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="lastName">Last Name *</Label>
-                    <Input 
-                      id="lastName" 
-                      name="lastName"
-                      value={formData.lastName}
-                      onChange={handleInputChange}
-                      placeholder="Doe" 
-                      className="mt-1" 
-                      required
-                    />
-                  </div>
-                </div>
-                
-                <div>
-                  <Label htmlFor="email">Email *</Label>
-                  <Input 
-                    id="email" 
-                    name="email"
-                    type="email" 
-                    value={formData.email}
-                    onChange={handleInputChange}
-                    placeholder="john@example.com" 
-                    className="mt-1" 
-                    required
-                  />
-                </div>
-                
-                <div>
-                  <Label htmlFor="phone">Phone</Label>
-                  <Input 
-                    id="phone" 
-                    name="phone"
-                    type="tel" 
-                    value={formData.phone}
-                    onChange={handleInputChange}
-                    placeholder="+1 (555) 123-4567" 
-                    className="mt-1" 
-                  />
-                </div>
-                
-                <div>
-                  <Label htmlFor="projectType">Project Type *</Label>
-                  <select 
-                    id="projectType" 
-                    name="projectType"
-                    value={formData.projectType}
-                    onChange={handleInputChange}
-                    className="w-full mt-1 px-3 py-2 border border-border rounded-md bg-background text-foreground"
-                    required
-                  >
-                    <option value="">Select a project type</option>
-                    <option value="residential">Residential</option>
-                    <option value="commercial">Commercial</option>
-                    <option value="industrial">Industrial</option>
-                    <option value="infrastructure">Infrastructure</option>
-                    <option value="other">Other</option>
-                  </select>
-                </div>
-                
-                <div>
-                  <Label htmlFor="message">Project Details *</Label>
-                  <Textarea 
-                    id="message" 
-                    name="message"
-                    value={formData.message}
-                    onChange={handleInputChange}
-                    placeholder="Tell us about your project requirements, timeline, and any specific needs..." 
-                    rows={4} 
-                    className="mt-1"
-                    required
-                  />
-                </div>
-                
-                <div className="flex gap-4">
-                  <Button 
-                    type="submit" 
-                    className="flex-1 gold-gradient text-primary-foreground hover:opacity-90"
-                  >
-                    <Send className="w-4 h-4 mr-2" />
-                    Send Message
-                  </Button>
-                  <Button 
-                    type="button" 
-                    variant="outline" 
+        <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="max-w-2xl w-full">
+            <Card className="bg-card border-border steel-texture">
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between mb-6">
+                  <h3 className="text-xl font-mono font-semibold text-foreground">Start Your Project</h3>
+                  <Button
+                    variant="ghost"
+                    size="icon"
                     onClick={() => setShowContactForm(false)}
-                    className="flex-1"
+                    className="text-muted-foreground hover:text-foreground"
                   >
-                    Cancel
+                    <X className="h-4 w-4" />
                   </Button>
                 </div>
-              </form>
-            </CardContent>
-          </Card>
+                
+                <form onSubmit={handleSubmit} className="space-y-4">
+                  <div className="grid md:grid-cols-2 gap-4">
+                    <div>
+                      <Label htmlFor="firstName">First Name *</Label>
+                      <Input 
+                        id="firstName" 
+                        name="firstName"
+                        value={formData.firstName}
+                        onChange={handleInputChange}
+                        className="mt-1" 
+                        required
+                      />
+                    </div>
+                    
+                    <div>
+                      <Label htmlFor="lastName">Last Name *</Label>
+                      <Input 
+                        id="lastName" 
+                        name="lastName"
+                        value={formData.lastName}
+                        onChange={handleInputChange}
+                        className="mt-1" 
+                        required
+                      />
+                    </div>
+                  </div>
+                  
+                  <div>
+                    <Label htmlFor="email">Email *</Label>
+                    <Input 
+                      id="email" 
+                      name="email"
+                      type="email" 
+                      value={formData.email}
+                      onChange={handleInputChange}
+                      placeholder="your.email@example.com" 
+                      className="mt-1" 
+                      required
+                    />
+                  </div>
+                  
+                  <div>
+                    <Label htmlFor="phone">Phone</Label>
+                    <Input 
+                      id="phone" 
+                      name="phone"
+                      type="tel" 
+                      value={formData.phone}
+                      onChange={handleInputChange}
+                      placeholder="+961 71 175 906" 
+                      className="mt-1" 
+                    />
+                  </div>
+                  
+                  <div>
+                    <Label htmlFor="projectType">Project Type *</Label>
+                    <select 
+                      id="projectType" 
+                      name="projectType"
+                      value={formData.projectType}
+                      onChange={handleInputChange}
+                      className="w-full mt-1 px-3 py-2 border border-border rounded-md bg-background text-foreground"
+                      required
+                    >
+                      <option value="">Select a project type</option>
+                      <option value="residential">Residential</option>
+                      <option value="commercial">Commercial</option>
+                      <option value="industrial">Industrial</option>
+                      <option value="infrastructure">Infrastructure</option>
+                      <option value="other">Other</option>
+                    </select>
+                  </div>
+                  
+                  <div>
+                    <Label htmlFor="message">Project Details *</Label>
+                    <Textarea 
+                      id="message" 
+                      name="message"
+                      value={formData.message}
+                      onChange={handleInputChange}
+                      placeholder="Tell us about your project requirements, timeline, and any specific needs..." 
+                      rows={4} 
+                      className="mt-1"
+                      required
+                    />
+                  </div>
+                  
+                  <div className="flex gap-4">
+                    <Button 
+                      type="submit" 
+                      className="flex-1 gold-gradient text-primary-foreground hover:opacity-90"
+                    >
+                      <Send className="h-4 w-4 mr-2" />
+                      Send Message
+                    </Button>
+                    <Button 
+                      type="button" 
+                      variant="outline" 
+                      onClick={() => setShowContactForm(false)}
+                      className="flex-1"
+                    >
+                      Cancel
+                    </Button>
+                  </div>
+                </form>
+              </CardContent>
+            </Card>
+          </div>
         </div>
       )}
 
-      <footer className="py-12 px-6 bg-secondary/50 border-t border-border">
-        <div className="max-w-7xl mx-auto text-center">
-          <div className="flex items-center justify-center space-x-2 mb-4">
-            <div className="w-6 h-6 bg-primary rounded-sm flex items-center justify-center">
-              <span className="text-primary-foreground font-mono font-bold text-xs">A</span>
-            </div>
-            <span className="text-lg font-mono font-bold text-primary">AWTAD</span>
-          </div>
-          <p className="text-sm text-muted-foreground">© 2024 AWTAD. Advanced Steel Design & Engineering Solutions.</p>
-        </div>
-      </footer>
+      <Footer />
     </div>
   )
 }

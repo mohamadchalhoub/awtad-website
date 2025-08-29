@@ -49,9 +49,9 @@ if (supabaseAnonKey.length < 100) {
 // Create production-optimized Supabase client
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
-    persistSession: false, // Don't persist auth in localStorage for better performance
-    autoRefreshToken: false, // Disable auto refresh for better performance
-    detectSessionInUrl: false, // Disable session detection for better performance
+    persistSession: true, // Enable auth persistence for authentication
+    autoRefreshToken: true, // Enable auto refresh for better UX
+    detectSessionInUrl: true, // Enable session detection for auth flows
   },
   realtime: {
     params: {

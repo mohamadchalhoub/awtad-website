@@ -4,6 +4,7 @@ import { Inter, Orbitron } from "next/font/google"
 import { AuthProvider } from "@/hooks/use-auth"
 import { ContentProvider } from "@/hooks/use-content"
 import { ThemeProvider } from "@/components/theme-provider"
+import { Toaster } from "@/components/ui/toaster"
 import "./globals.css"
 
 const inter = Inter({
@@ -50,6 +51,7 @@ html {
           <AuthProvider>
             <ContentProvider>{children}</ContentProvider>
           </AuthProvider>
+          <Toaster />
         </ThemeProvider>
       </body>
     </html>

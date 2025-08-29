@@ -1,6 +1,7 @@
 "use client"
 
 import { Navigation } from "@/components/navigation"
+import { Footer } from "@/components/footer"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { useContent } from "@/hooks/use-content"
@@ -9,6 +10,7 @@ import { useRouter, useParams } from "next/navigation"
 import { useEffect, useState } from "react"
 import { ArrowLeft, Calendar, Tag, Image as ImageIcon, Share2, Download, X, ChevronLeft, ChevronRight, Maximize2, MessageCircle } from "lucide-react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { useToast } from "@/hooks/use-toast"
 
 interface ProjectWithCover {
   id: number
@@ -31,6 +33,7 @@ interface ProjectImage {
 
 export default function ProjectDetailPage() {
   const { content, isLoading, refreshContent } = useContent()
+  const { toast } = useToast()
   const router = useRouter()
   const params = useParams()
   const projectId = parseInt(params.id as string)
@@ -227,7 +230,11 @@ Thank you! I look forward to hearing from you.`
   const copyToClipboard = async () => {
     try {
       await navigator.clipboard.writeText(window.location.href)
-      alert('Link copied to clipboard!')
+      toast({
+        title: "Link Copied!",
+        description: "Project link has been copied to your clipboard.",
+        variant: "default",
+      })
       setShowShareDialog(false)
     } catch (error) {
       console.error('Failed to copy:', error)
@@ -235,10 +242,14 @@ Thank you! I look forward to hearing from you.`
   }
 
   const handleDownloadAlbum = async () => {
-    if (projectImages.length === 0) {
-      alert('No images to download')
-      return
-    }
+          if (projectImages.length === 0) {
+        toast({
+          title: "No Images Available",
+          description: "This project doesn't have any images to download.",
+          variant: "destructive",
+        })
+        return
+      }
 
     try {
       // Create a zip file with all project images
@@ -263,10 +274,14 @@ Thank you! I look forward to hearing from you.`
       link.click()
       document.body.removeChild(link)
       window.URL.revokeObjectURL(url)
-    } catch (error) {
-      console.error('Error downloading album:', error)
-      alert('Failed to download album. Please try again.')
-    }
+          } catch (error) {
+        console.error('Error downloading album:', error)
+        toast({
+          title: "Download Failed",
+          description: "Failed to download album. Please try again.",
+          variant: "destructive",
+        })
+      }
   }
 
   const formatFileSize = (bytes: number) => {
@@ -653,7 +668,11 @@ Thank you! I look forward to hearing from you.`
                   if (whatsappContent) {
                     const fullMessage = `${whatsappContent.body}`
                     navigator.clipboard.writeText(fullMessage)
-                    alert('WhatsApp message copied to clipboard!')
+                    toast({
+          title: "Message Copied!",
+          description: "WhatsApp message has been copied to your clipboard.",
+          variant: "default",
+        })
                   }
                 }}
                 className="flex-1"
@@ -686,17 +705,7 @@ Thank you! I look forward to hearing from you.`
         </DialogContent>
       </Dialog>
 
-      <footer className="py-12 px-6 bg-secondary/50 border-t border-border">
-        <div className="max-w-7xl mx-auto text-center">
-          <div className="flex items-center justify-center space-x-2 mb-4">
-            <div className="w-6 h-6 bg-primary rounded-sm flex items-center justify-center">
-              <span className="text-primary-foreground font-mono font-bold text-xs">A</span>
-            </div>
-            <span className="text-lg font-mono font-bold text-primary">AWTAD</span>
-          </div>
-          <p className="text-sm text-muted-foreground">© 2024 AWTAD. Advanced Steel Design & Engineering Solutions.</p>
-        </div>
-      </footer>
+      <Footer />
     </div>
   )
 }

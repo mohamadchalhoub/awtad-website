@@ -1,6 +1,7 @@
 "use client"
 
 import { Navigation } from "@/components/navigation"
+import { Footer } from "@/components/footer"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { useContent } from "@/hooks/use-content"
@@ -297,22 +298,7 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* Footer */}
-      <AnimatedSection className="py-12 px-6 bg-secondary/50 border-t border-border" direction="up">
-        <div className="max-w-7xl mx-auto text-center">
-          <motion.div 
-            className="flex items-center justify-center space-x-2 mb-4"
-            whileHover={{ scale: 1.05 }}
-            transition={{ duration: 0.3 }}
-          >
-            <div className="w-6 h-6 gold-gradient rounded-sm flex items-center justify-center shadow-lg glow-gold">
-              <span className="text-black font-mono font-bold text-xs">A</span>
-            </div>
-            <span className="text-lg font-mono font-bold text-shadow-gold bg-gradient-to-r from-amber-400 via-yellow-500 to-amber-600 bg-clip-text text-transparent">AWTAD</span>
-          </motion.div>
-          <p className="text-sm text-muted-foreground">© 2024 AWTAD. Advanced Steel Design & Engineering Solutions.</p>
-        </div>
-      </AnimatedSection>
+      <Footer />
     </div>
   )
 }

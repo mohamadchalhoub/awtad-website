@@ -32,7 +32,7 @@ Please provide me with pricing and ordering details.
 Best regards,
 [Your Name]`)
 
-    const mailtoLink = `mailto:info@awtad.com?subject=${subject}&body=${body}`
+    const mailtoLink = `mailto:husseinnouraldeen5@gmail.com?subject=${subject}&body=${body}`
     window.open(mailtoLink)
   }
 

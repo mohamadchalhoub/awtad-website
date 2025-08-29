@@ -48,20 +48,20 @@ export function Navigation() {
     {
       icon: Mail,
       label: "Email",
-      value: "info@awtad.com",
-      href: "mailto:info@awtad.com"
+      value: "husseinnouraldeen5@gmail.com",
+      href: "mailto:husseinnouraldeen5@gmail.com"
     },
     {
       icon: Phone,
       label: "Phone",
-      value: "+1 (555) 123-4567",
-      href: "tel:+15551234567"
+      value: "+961 71 175 906",
+      href: "tel:+96171175906"
     },
     {
       icon: MapPin,
       label: "Address",
-      value: "123 Steel Street, Engineering District, City, Country",
-      href: "https://maps.google.com"
+      value: "Beirut - Dahye - mreijeh - Al amir Blocks - Block F",
+      href: "https://maps.app.goo.gl/1qbLxBast4tUM2YV9"
     }
   ]
 

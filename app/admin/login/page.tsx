@@ -26,7 +26,7 @@ export default function AdminLoginPage() {
     if (success) {
       router.push("/admin/dashboard")
     } else {
-      setError("Invalid email or password")
+      setError("Invalid email or password. Please check your credentials and try again.")
     }
   }
 
@@ -59,7 +59,7 @@ export default function AdminLoginPage() {
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder="admin@awtad.com"
+                  placeholder="Enter your email"
                   required
                   className="bg-background border-border"
                 />
@@ -95,11 +95,7 @@ export default function AdminLoginPage() {
               </Button>
             </form>
 
-            <div className="mt-6 p-4 bg-muted/50 rounded-lg">
-              <p className="text-xs text-muted-foreground mb-2">Demo Credentials:</p>
-              <p className="text-xs font-mono text-foreground">Email: admin@awtad.com</p>
-              <p className="text-xs font-mono text-foreground">Password: awtad2024</p>
-            </div>
+
           </CardContent>
         </Card>
 
