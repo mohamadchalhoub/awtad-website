@@ -1,7 +1,6 @@
 import type React from "react"
 import type { Metadata } from "next"
 import { Inter, Orbitron } from "next/font/google"
-import { AuthProvider } from "@/hooks/use-auth"
 import { ContentProvider } from "@/hooks/use-content"
 import { ThemeProvider } from "@/components/theme-provider"
 import { Toaster } from "@/components/ui/toaster"
@@ -48,9 +47,7 @@ html {
           enableSystem={false}
           disableTransitionOnChange
         >
-          <AuthProvider>
-            <ContentProvider>{children}</ContentProvider>
-          </AuthProvider>
+          <ContentProvider>{children}</ContentProvider>
           <Toaster />
         </ThemeProvider>
       </body>
