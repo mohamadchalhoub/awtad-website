@@ -9,7 +9,7 @@ import { Menu, X } from "lucide-react"
 
 export function AdminNavigation() {
   const pathname = usePathname()
-  const { user, logout } = useAuth()
+  const { user, signOut } = useAuth()
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
 
   const navItems = [
@@ -18,6 +18,10 @@ export function AdminNavigation() {
     { href: "/admin/projects", label: "Projects" },
     { href: "/admin/images", label: "Images" },
   ]
+
+  const handleLogout = async () => {
+    await signOut()
+  }
 
   return (
     <nav className="bg-card border-b border-border sticky top-0 z-50">
@@ -67,7 +71,7 @@ export function AdminNavigation() {
             <Button
               variant="outline"
               size="sm"
-              onClick={logout}
+              onClick={handleLogout}
               className="border-primary/30 text-primary hover:bg-primary hover:text-primary-foreground bg-transparent"
             >
               Logout
@@ -103,7 +107,7 @@ export function AdminNavigation() {
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={logout}
+                  onClick={handleLogout}
                   className="w-full border-primary/30 text-primary hover:bg-primary hover:text-primary-foreground bg-transparent"
                 >
                   Logout

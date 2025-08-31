@@ -14,21 +14,24 @@ import Link from "next/link"
 export default function AdminLoginPage() {
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
-  const [error, setError] = useState("")
-  const { login, isLoading } = useAuth()
+  const [localError, setLocalError] = useState("")
+  const { signIn, loading, error: authError } = useAuth()
   const router = useRouter()
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    setError("")
+    setLocalError("")
 
-    const success = await login(email, password)
-    if (success) {
+    const result = await signIn(email, password)
+    if (result.success) {
       router.push("/admin/dashboard")
     } else {
-      setError("Invalid email or password. Please check your credentials and try again.")
+      setLocalError(result.error || "Invalid email or password. Please check your credentials and try again.")
     }
   }
+
+  // Use either local error or auth error
+  const displayError = localError || authError
 
   return (
     <div className="min-h-screen bg-background flex items-center justify-center px-6">
@@ -80,18 +83,18 @@ export default function AdminLoginPage() {
                 />
               </div>
 
-              {error && (
+              {displayError && (
                 <Alert className="border-destructive/50 bg-destructive/10">
-                  <AlertDescription className="text-destructive">{error}</AlertDescription>
+                  <AlertDescription className="text-destructive">{displayError}</AlertDescription>
                 </Alert>
               )}
 
               <Button
                 type="submit"
                 className="w-full gold-gradient text-primary-foreground hover:opacity-90 transition-opacity"
-                disabled={isLoading}
+                disabled={loading}
               >
-                {isLoading ? "Signing in..." : "Sign In"}
+                {loading ? "Signing in..." : "Sign In"}
               </Button>
             </form>
 
