@@ -49,9 +49,41 @@ if (supabaseAnonKey.length < 100) {
 // Create production-optimized Supabase client
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
-    persistSession: true, // Enable auth persistence for authentication
+    persistSession: false, // Disable persistent localStorage storage for security
     autoRefreshToken: true, // Enable auto refresh for better UX
     detectSessionInUrl: true, // Enable session detection for auth flows
+    storage: {
+      // Use custom storage that's more secure
+      getItem: (key: string) => {
+        try {
+          // Only allow access to non-sensitive keys
+          if (key.includes('auth') || key.includes('token')) {
+            return null // Block access to sensitive auth data
+          }
+          return sessionStorage.getItem(key)
+        } catch {
+          return null
+        }
+      },
+      setItem: (key: string, value: string) => {
+        try {
+          // Only allow setting non-sensitive keys
+          if (key.includes('auth') || key.includes('token')) {
+            return // Block setting sensitive auth data
+          }
+          sessionStorage.setItem(key, value)
+        } catch {
+          // Silently fail if storage is not available
+        }
+      },
+      removeItem: (key: string) => {
+        try {
+          sessionStorage.removeItem(key)
+        } catch {
+          // Silently fail if storage is not available
+        }
+      }
+    }
   },
   realtime: {
     params: {

@@ -23,7 +23,7 @@ export const metadata: Metadata = {
   title: "AWTAD - Advanced Steel Design & Engineering",
   description:
     "Leading steel design and engineering solutions with cutting-edge technology and precision craftsmanship.",
-  generator: "v0.app",
+  generator: "",
 }
 
 export default function RootLayout({

@@ -1,68 +1,57 @@
-// Security Cleanup Script for AWTAD
-// Run this in your browser console to clean up all insecure data
+/**
+ * Security Cleanup Script
+ * 
+ * This script removes sensitive authentication data from localStorage
+ * and implements the new secure session storage system.
+ * 
+ * Run this in the browser console or as a one-time cleanup.
+ */
 
-console.log('🔒 Starting AWTAD Security Cleanup...')
-
-// List of items to REMOVE (insecure)
-const itemsToRemove = [
-  'admin-password',
-  'adminToken',
-  'admin-email',
-  'admin-credentials',
-  'test-data',
-  'demo-data'
-]
-
-// List of items to KEEP (secure)
-const itemsToKeep = [
-  'awtad_auth_user',
-  'awtad_content_updated',
-  'awtad_images',
-  'awtad_site_content',
-  'awtad_content_updated_timestamp',
-  'cachedDbContentEn',
-  'cachedDbContentEn_timestamp',
-  'currentLanguage',
-  'currentTheme'
-]
-
-// Remove insecure items
-console.log('🗑️ Removing insecure localStorage items...')
-itemsToRemove.forEach(item => {
-  if (localStorage.getItem(item)) {
-    localStorage.removeItem(item)
-    console.log(`✅ Removed: ${item}`)
+(function() {
+  'use strict';
+  
+  console.log('🔒 Starting security cleanup...');
+  
+  // List of sensitive keys to remove
+  const sensitiveKeys = [
+    'awtad_auth_user',
+    'sb-vhezeyapqzoscfffgdzy-auth-token',
+    'sb-vhezeyapqzoscfffgdzy-auth-token-expires-at',
+    'sb-vhezeyapqzoscfffgdzy-auth-token-refresh-token'
+  ];
+  
+  // Remove sensitive data from localStorage
+  let removedCount = 0;
+  sensitiveKeys.forEach(key => {
+    if (localStorage.getItem(key)) {
+      localStorage.removeItem(key);
+      removedCount++;
+      console.log(`✅ Removed: ${key}`);
+    }
+  });
+  
+  // Remove any other Supabase-related auth tokens
+  const allKeys = Object.keys(localStorage);
+  allKeys.forEach(key => {
+    if (key.includes('sb-') && key.includes('auth')) {
+      localStorage.removeItem(key);
+      removedCount++;
+      console.log(`✅ Removed: ${key}`);
+    }
+  });
+  
+  // Clear sessionStorage as well (fresh start)
+  sessionStorage.clear();
+  console.log('✅ Cleared sessionStorage');
+  
+  console.log(`🔒 Security cleanup completed! Removed ${removedCount} sensitive items.`);
+  console.log('📝 Note: You will need to log in again for security reasons.');
+  
+  // Optional: Redirect to login page
+  if (window.location.pathname.includes('/admin')) {
+    console.log('🔄 Redirecting to login page...');
+    setTimeout(() => {
+      window.location.href = '/admin/login';
+    }, 2000);
   }
-})
-
-// Clean up any other suspicious items
-console.log('🔍 Scanning for other suspicious items...')
-const allKeys = Object.keys(localStorage)
-const suspiciousKeys = allKeys.filter(key => 
-  key.includes('admin') || 
-  key.includes('password') || 
-  key.includes('token') ||
-  key.includes('credential') ||
-  key.includes('test') ||
-  key.includes('demo')
-)
-
-suspiciousKeys.forEach(key => {
-  if (!itemsToKeep.includes(key)) {
-    localStorage.removeItem(key)
-    console.log(`✅ Removed suspicious item: ${key}`)
-  }
-})
-
-// Show current localStorage status
-console.log('\n📋 Current localStorage status:')
-const remainingKeys = Object.keys(localStorage)
-remainingKeys.forEach(key => {
-  const value = localStorage.getItem(key)
-  const isSecure = itemsToKeep.includes(key)
-  console.log(`${isSecure ? '✅' : '❓'} ${key}: ${value ? (typeof value === 'string' && value.length > 100 ? value.substring(0, 100) + '...' : value) : 'undefined'}`)
-})
-
-console.log('\n🎯 Cleanup completed!')
-console.log('🔒 Your localStorage is now secure!')
-console.log('💡 Only keep essential items for app functionality')
+})();

@@ -20,7 +20,9 @@ export interface SignUpCredentials {
 }
 
 export class SupabaseAuthService {
-  private static readonly STORAGE_KEY = "awtad_auth_user"
+  private static readonly USER_CACHE_KEY = "awtad_user_cache"
+  private static readonly SESSION_TIMEOUT = 30 * 60 * 1000 // 30 minutes
+  private static sessionTimer: NodeJS.Timeout | null = null
 
   /**
    * Sign in with email and password
@@ -75,8 +77,11 @@ export class SupabaseAuthService {
         created_at: data.user.created_at,
       }
 
-      // Store user in localStorage for persistence
-      localStorage.setItem(this.STORAGE_KEY, JSON.stringify(authUser))
+      // Store minimal user data in sessionStorage (cleared when browser closes)
+      this.setSecureUserCache(authUser)
+      
+      // Set session timeout
+      this.setSessionTimeout()
 
       return { user: authUser, error: null }
     } catch (error) {
@@ -137,8 +142,11 @@ export class SupabaseAuthService {
     try {
       const { error } = await supabase.auth.signOut()
       
-      // Clear local storage
-      localStorage.removeItem(this.STORAGE_KEY)
+      // Clear secure cache
+      this.clearSecureUserCache()
+      
+      // Clear session timeout
+      this.clearSessionTimeout()
       
       if (error) {
         return { error: error.message }
@@ -156,10 +164,10 @@ export class SupabaseAuthService {
    */
   static async getCurrentUser(): Promise<AuthUser | null> {
     try {
-      // First check localStorage for cached user
-      const cachedUser = localStorage.getItem(this.STORAGE_KEY)
+      // First check secure cache
+      const cachedUser = this.getSecureUserCache()
       if (cachedUser) {
-        return JSON.parse(cachedUser)
+        return cachedUser
       }
 
       // If no cached user, check Supabase session
@@ -204,8 +212,11 @@ export class SupabaseAuthService {
         created_at: session.user.created_at,
       }
 
-      // Cache the user
-      localStorage.setItem(this.STORAGE_KEY, JSON.stringify(authUser))
+      // Cache the user securely
+      this.setSecureUserCache(authUser)
+      
+      // Set session timeout
+      this.setSessionTimeout()
 
       return authUser
     } catch (error) {
@@ -275,5 +286,98 @@ export class SupabaseAuthService {
    */
   static onAuthStateChange(callback: (event: string, session: Session | null) => void) {
     return supabase.auth.onAuthStateChange(callback)
+  }
+
+  /**
+   * Secure user cache management using sessionStorage
+   */
+  private static setSecureUserCache(user: AuthUser): void {
+    try {
+      // Store minimal user data without sensitive information
+      const secureUserData = {
+        id: user.id,
+        email: user.email,
+        role: user.role,
+        created_at: user.created_at,
+        cached_at: Date.now()
+      }
+      
+      sessionStorage.setItem(this.USER_CACHE_KEY, JSON.stringify(secureUserData))
+    } catch (error) {
+      console.warn('Failed to cache user data:', error)
+    }
+  }
+
+  private static getSecureUserCache(): AuthUser | null {
+    try {
+      const cached = sessionStorage.getItem(this.USER_CACHE_KEY)
+      if (!cached) return null
+
+      const userData = JSON.parse(cached)
+      
+      // Check if cache is expired
+      if (Date.now() - userData.cached_at > this.SESSION_TIMEOUT) {
+        this.clearSecureUserCache()
+        return null
+      }
+
+      return {
+        id: userData.id,
+        email: userData.email,
+        role: userData.role,
+        created_at: userData.created_at
+      }
+    } catch (error) {
+      console.warn('Failed to retrieve cached user data:', error)
+      this.clearSecureUserCache()
+      return null
+    }
+  }
+
+  private static clearSecureUserCache(): void {
+    try {
+      sessionStorage.removeItem(this.USER_CACHE_KEY)
+    } catch (error) {
+      console.warn('Failed to clear user cache:', error)
+    }
+  }
+
+  /**
+   * Session timeout management
+   */
+  private static setSessionTimeout(): void {
+    this.clearSessionTimeout()
+    
+    this.sessionTimer = setTimeout(() => {
+      console.log('Session timeout reached, clearing user data')
+      this.clearSecureUserCache()
+      // Optionally trigger a re-authentication flow
+    }, this.SESSION_TIMEOUT)
+  }
+
+  private static clearSessionTimeout(): void {
+    if (this.sessionTimer) {
+      clearTimeout(this.sessionTimer)
+      this.sessionTimer = null
+    }
+  }
+
+  /**
+   * Clean up any existing localStorage data (migration helper)
+   */
+  static cleanupLegacyStorage(): void {
+    try {
+      // Remove old localStorage items
+      localStorage.removeItem("awtad_auth_user")
+      
+      // Remove any Supabase auth tokens from localStorage
+      Object.keys(localStorage).forEach(key => {
+        if (key.includes('sb-') || key.includes('auth') || key.includes('token')) {
+          localStorage.removeItem(key)
+        }
+      })
+    } catch (error) {
+      console.warn('Failed to cleanup legacy storage:', error)
+    }
   }
 }
