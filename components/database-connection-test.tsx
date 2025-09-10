@@ -7,9 +7,9 @@ import { supabase } from '@/lib/supabase'
 import { SupabaseContentService } from '@/lib/supabase-content'
 
 export function DatabaseConnectionTest() {
-  const [testResults, setTestResults] = useState<any[]>([])
+  const [testResults, setTestResults] = useState<Array<{test: string, status: string, message: string}>>([])
   const [loading, setLoading] = useState(false)
-  const [envStatus, setEnvStatus] = useState<any>({})
+  const [envStatus, setEnvStatus] = useState<Record<string, {exists: boolean, value: string, fullValue: string | undefined}>>({})
 
   useEffect(() => {
     checkEnvironmentVariables()
@@ -37,7 +37,7 @@ export function DatabaseConnectionTest() {
     setLoading(true)
     setTestResults([])
     
-    const results: any[] = []
+    const results: Array<{test: string, status: string, message: string}> = []
 
     // Test 1: Basic Supabase client creation
     try {
@@ -48,7 +48,7 @@ export function DatabaseConnectionTest() {
       })
       setTestResults([...results])
 
-      const testClient = createClient(
+      const testClient = await createClient(
         process.env.NEXT_PUBLIC_SUPABASE_URL!,
         process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
       )
@@ -297,7 +297,7 @@ export function DatabaseConnectionTest() {
 }
 
 // Helper function to create Supabase client
-function createClient(url: string, key: string) {
-  const { createClient: createSupabaseClient } = require('@supabase/supabase-js')
+async function createClient(url: string, key: string) {
+  const { createClient: createSupabaseClient } = await import('@supabase/supabase-js')
   return createSupabaseClient(url, key)
 }

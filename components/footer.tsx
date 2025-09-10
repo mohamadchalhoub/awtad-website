@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -168,8 +169,8 @@ This message was sent from the AWTAD website contact form.`
             <div className="space-y-3">
               <h3 className="text-lg font-mono font-semibold text-foreground mb-3">Quick Links</h3>
               <div className="space-y-2">
-                <a href="/" className="block text-muted-foreground hover:text-primary transition-colors">Home</a>
-                <a href="/projects" className="block text-muted-foreground hover:text-primary transition-colors">Projects</a>
+                <Link href="/" className="block text-muted-foreground hover:text-primary transition-colors">Home</Link>
+                <Link href="/projects" className="block text-muted-foreground hover:text-primary transition-colors">Projects</Link>
                 <a href="/about" className="block text-muted-foreground hover:text-primary transition-colors">About Us</a>
                 <button 
                   onClick={() => setShowContactForm(true)}

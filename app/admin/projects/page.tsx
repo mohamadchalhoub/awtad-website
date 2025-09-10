@@ -314,7 +314,7 @@ const AdminProjectsPage = React.memo(function AdminProjectsPage() {
       category: project.category,
       year: project.year,
       description: project.description,
-      featured: Boolean((project as any).featured)
+      featured: Boolean((project as Record<string, unknown>).featured)
     })
     setShowEditDialog(true)
   }

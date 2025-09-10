@@ -43,11 +43,14 @@ export class SupabaseAuthService {
       }
 
       // Get or create user profile
-      let { data: profile, error: profileError } = await supabase
+      const profileResult = await supabase
         .from('user_profiles')
         .select('role')
         .eq('user_id', data.user.id)
         .single()
+      
+      let profile = profileResult.data
+      let profileError = profileResult.error
 
       // If profile doesn't exist, create it
       if (profileError && profileError.code === 'PGRST116') {
@@ -178,11 +181,14 @@ export class SupabaseAuthService {
       }
 
       // Get or create user profile
-      let { data: profile, error: profileError } = await supabase
+      const profileResult = await supabase
         .from('user_profiles')
         .select('role')
         .eq('user_id', session.user.id)
         .single()
+      
+      let profile = profileResult.data
+      let profileError = profileResult.error
 
       // If profile doesn't exist, create it
       if (profileError && profileError.code === 'PGRST116') {
