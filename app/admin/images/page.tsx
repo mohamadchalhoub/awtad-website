@@ -4,7 +4,8 @@ import { useState, useEffect } from "react"
 import { AdminGuard } from "@/components/admin-guard"
 import { AdminNavigation } from "@/components/admin-navigation"
 import { ImageUpload } from "@/components/image-upload"
-import { ImageService, type ImageData } from "@/lib/images"
+import { SupabaseContentService } from "@/lib/supabase-content"
+import type { Tables } from "@/lib/supabase"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -13,6 +14,8 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 
+type ImageData = Tables<'images'>
+
 export default function AdminImagesPage() {
   const [images, setImages] = useState<ImageData[]>([])
   const [selectedCategory, setSelectedCategory] = useState("all")
@@ -20,34 +23,55 @@ export default function AdminImagesPage() {
   const [editingImage, setEditingImage] = useState<ImageData | null>(null)
   const [newCategory, setNewCategory] = useState("")
   const [showCategoryDialog, setShowCategoryDialog] = useState(false)
+  const [price, setPrice] = useState("")
 
   useEffect(() => {
     loadImages()
   }, [])
 
-  const loadImages = () => {
-    const allImages = ImageService.getAllImages()
-    setImages(allImages)
+  const loadImages = async () => {
+    try {
+      const allImages = await SupabaseContentService.getAllImages()
+      setImages(allImages)
+    } catch (error) {
+      console.error('Error loading images:', error)
+      setImages([])
+    }
   }
 
   const handleUploadComplete = (image: ImageData) => {
-    loadImages()
+    // Add the new image to the current state instead of reloading all images
+    setImages(prevImages => [image, ...prevImages])
   }
 
-  const handleDeleteImage = (id: string) => {
-    ImageService.deleteImage(id)
-    loadImages()
-    setDeleteMessage("Image deleted successfully!")
-    setTimeout(() => setDeleteMessage(""), 3000)
-  }
-
-  const handleDeleteCategory = (category: string) => {
-    if (confirm(`Are you sure you want to delete all images in the "${category}" category? This action cannot be undone.`)) {
-      const imagesToDelete = images.filter(img => img.category === category)
-      imagesToDelete.forEach(img => ImageService.deleteImage(img.id))
-      loadImages()
-      setDeleteMessage(`All images in "${category}" category deleted!`)
+  const handleDeleteImage = async (id: string) => {
+    try {
+      await SupabaseContentService.deleteImage(id)
+      await loadImages()
+      setDeleteMessage("Image deleted successfully!")
       setTimeout(() => setDeleteMessage(""), 3000)
+    } catch (error) {
+      console.error('Error deleting image:', error)
+      setDeleteMessage("Error deleting image!")
+      setTimeout(() => setDeleteMessage(""), 3000)
+    }
+  }
+
+  const handleDeleteCategory = async (category: string) => {
+    if (confirm(`Are you sure you want to delete all images in the "${category}" category? This action cannot be undone.`)) {
+      try {
+        const imagesToDelete = images.filter(img => img.category === category)
+        for (const img of imagesToDelete) {
+          await SupabaseContentService.deleteImage(img.id)
+        }
+        await loadImages()
+        setDeleteMessage(`All images in "${category}" category deleted!`)
+        setTimeout(() => setDeleteMessage(""), 3000)
+      } catch (error) {
+        console.error('Error deleting category images:', error)
+        setDeleteMessage("Error deleting category images!")
+        setTimeout(() => setDeleteMessage(""), 3000)
+      }
     }
   }
 
@@ -55,13 +79,26 @@ export default function AdminImagesPage() {
     setEditingImage(image)
   }
 
-  const handleSaveImage = () => {
+  const handleSaveImage = async () => {
     if (editingImage) {
-      ImageService.updateImage(editingImage.id, editingImage)
-      loadImages()
-      setEditingImage(null)
-      setDeleteMessage("Image updated successfully!")
-      setTimeout(() => setDeleteMessage(""), 3000)
+      // Validate price
+      if (editingImage.price < 0) {
+        setDeleteMessage("Price must be a positive number!")
+        setTimeout(() => setDeleteMessage(""), 3000)
+        return
+      }
+      
+      try {
+        await SupabaseContentService.updateImage(editingImage.id, editingImage)
+        await loadImages()
+        setEditingImage(null)
+        setDeleteMessage("Image updated successfully!")
+        setTimeout(() => setDeleteMessage(""), 3000)
+      } catch (error) {
+        console.error('Error updating image:', error)
+        setDeleteMessage("Error updating image!")
+        setTimeout(() => setDeleteMessage(""), 3000)
+      }
     }
   }
 
@@ -74,12 +111,20 @@ export default function AdminImagesPage() {
     }
   }
 
-  const handleClearAll = () => {
+  const handleClearAll = async () => {
     if (confirm("Are you sure you want to delete all images? This action cannot be undone.")) {
-      ImageService.clearAllImages()
-      loadImages()
-      setDeleteMessage("All images cleared!")
-      setTimeout(() => setDeleteMessage(""), 3000)
+      try {
+        for (const img of images) {
+          await SupabaseContentService.deleteImage(img.id)
+        }
+        await loadImages()
+        setDeleteMessage("All images cleared!")
+        setTimeout(() => setDeleteMessage(""), 3000)
+      } catch (error) {
+        console.error('Error clearing images:', error)
+        setDeleteMessage("Error clearing images!")
+        setTimeout(() => setDeleteMessage(""), 3000)
+      }
     }
   }
 
@@ -96,7 +141,7 @@ export default function AdminImagesPage() {
 
   const getCategoryStats = (category: string) => {
     const categoryImages = images.filter(img => img.category === category)
-    const totalSize = categoryImages.reduce((total, img) => total + img.size, 0)
+    const totalSize = categoryImages.reduce((total, img) => total + (img.file_size || 0), 0)
     return {
       count: categoryImages.length,
       size: formatFileSize(totalSize)
@@ -227,7 +272,7 @@ export default function AdminImagesPage() {
                       </div>
                       <div className="text-center space-y-2">
                         <p className="text-2xl font-mono font-bold text-primary">
-                          {formatFileSize(images.reduce((total, img) => total + img.size, 0))}
+                          {formatFileSize(images.reduce((total, img) => total + (img.file_size || 0), 0))}
                         </p>
                         <p className="text-sm text-muted-foreground">Total Size</p>
                       </div>
@@ -285,13 +330,18 @@ export default function AdminImagesPage() {
                           <div className="p-4 space-y-3">
                             <div className="space-y-1">
                               <h3 className="text-sm font-mono font-semibold text-foreground truncate">{image.name}</h3>
-                              <p className="text-xs text-primary bg-primary/10 px-2 py-1 rounded w-fit">
-                                {image.category}
-                              </p>
+                              <div className="flex items-center justify-between">
+                                <p className="text-xs text-primary bg-primary/10 px-2 py-1 rounded w-fit">
+                                  {image.category}
+                                </p>
+                                <p className="text-xs font-semibold text-green-600 bg-green-100 px-2 py-1 rounded">
+                                  ${(image.price || 0).toFixed(2)}
+                                </p>
+                              </div>
                             </div>
                             <div className="flex items-center justify-between text-xs text-muted-foreground">
-                              <span>{formatFileSize(image.size)}</span>
-                              <span>{new Date(image.uploadDate).toLocaleDateString()}</span>
+                              <span>{formatFileSize(image.file_size || 0)}</span>
+                              <span>{new Date(image.created_at).toLocaleDateString()}</span>
                             </div>
                             <div className="flex space-x-2">
                               <Button
@@ -352,6 +402,18 @@ export default function AdminImagesPage() {
                       </option>
                     ))}
                   </select>
+                </div>
+                <div>
+                  <Label htmlFor="imagePrice">Price (USD)</Label>
+                  <Input
+                    id="imagePrice"
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={editingImage.price || 0}
+                    onChange={(e) => setEditingImage({ ...editingImage, price: parseFloat(e.target.value) || 0 })}
+                    placeholder="0.00"
+                  />
                 </div>
                 <div className="flex space-x-2">
                   <Button onClick={handleSaveImage} className="flex-1">Save Changes</Button>

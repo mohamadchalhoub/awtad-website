@@ -1,76 +1,75 @@
 "use client"
 
-import { useEffect, useState } from 'react'
+import { useEffect } from 'react'
+import { usePerformance } from '@/hooks/use-performance'
 
 export function PerformanceMonitor() {
-  const [metrics, setMetrics] = useState({
-    fps: 0,
-    memory: 0,
-    loadTime: 0
-  })
+  const metrics = usePerformance()
 
   useEffect(() => {
-    let frameCount = 0
-    let lastTime = performance.now()
-    let animationId: number
-
-    const measureFPS = () => {
-      frameCount++
-      const currentTime = performance.now()
-      
-      if (currentTime - lastTime >= 1000) {
-        const fps = Math.round((frameCount * 1000) / (currentTime - lastTime))
-        setMetrics(prev => ({ ...prev, fps }))
-        frameCount = 0
-        lastTime = currentTime
-      }
-      
-      animationId = requestAnimationFrame(measureFPS)
+    // Only run in development or when explicitly enabled
+    if (process.env.NODE_ENV !== 'development' && !process.env.NEXT_PUBLIC_ENABLE_PERFORMANCE_MONITORING) {
+      return
     }
 
-    // Start FPS measurement
-    measureFPS()
+    // Log performance metrics
+    console.group('🚀 Performance Metrics')
+    console.log('Page Load Time:', `${metrics.loadTime.toFixed(2)}ms`)
+    console.log('DOM Content Loaded:', `${metrics.domContentLoaded.toFixed(2)}ms`)
+    
+    if (metrics.firstContentfulPaint) {
+      console.log('First Contentful Paint:', `${metrics.firstContentfulPaint.toFixed(2)}ms`)
+    }
+    
+    if (metrics.largestContentfulPaint) {
+      console.log('Largest Contentful Paint:', `${metrics.largestContentfulPaint.toFixed(2)}ms`)
+    }
+    
+    if (metrics.firstInputDelay) {
+      console.log('First Input Delay:', `${metrics.firstInputDelay.toFixed(2)}ms`)
+    }
+    
+    if (metrics.cumulativeLayoutShift) {
+      console.log('Cumulative Layout Shift:', metrics.cumulativeLayoutShift.toFixed(4))
+    }
+    
+    console.groupEnd()
 
-    // Measure memory usage (if available)
-    if ('memory' in performance) {
-      const updateMemory = () => {
-        const memory = (performance as any).memory
-        setMetrics(prev => ({ 
-          ...prev, 
-          memory: Math.round(memory.usedJSHeapSize / 1024 / 1024) 
-        }))
-      }
-      
-      const memoryInterval = setInterval(updateMemory, 2000)
-      updateMemory()
-      
-      return () => {
-        clearInterval(memoryInterval)
-        cancelAnimationFrame(animationId)
-      }
+    // Performance warnings
+    if (metrics.loadTime > 3000) {
+      console.warn('⚠️ Slow page load detected:', `${metrics.loadTime.toFixed(2)}ms`)
+    }
+    
+    if (metrics.domContentLoaded > 2000) {
+      console.warn('⚠️ Slow DOM content loaded:', `${metrics.domContentLoaded.toFixed(2)}ms`)
     }
 
-    return () => {
-      cancelAnimationFrame(animationId)
-    }
-  }, [])
+  }, [metrics])
 
-  // Only show in development
-  if (process.env.NODE_ENV !== 'development') {
-    return null
-  }
-
-  return (
-    <div className="fixed bottom-4 right-4 bg-black/80 text-white p-3 rounded-lg text-xs font-mono z-50">
-      <div className="space-y-1">
-        <div>FPS: {metrics.fps}</div>
-        <div>Memory: {metrics.memory}MB</div>
-        <div>Load: {Math.round(performance.now())}ms</div>
-      </div>
-    </div>
-  )
+  // Don't render anything visible
+  return null
 }
 
+// Component for measuring specific operations
+export function PerformanceTimer({ 
+  operation, 
+  children 
+}: { 
+  operation: string
+  children: React.ReactNode 
+}) {
+  useEffect(() => {
+    const startTime = performance.now()
+    
+    return () => {
+      const endTime = performance.now()
+      const duration = endTime - startTime
+      
+      if (process.env.NODE_ENV === 'development') {
+        console.log(`⏱️ ${operation}: ${duration.toFixed(2)}ms`)
+      }
+    }
+  }, [operation])
 
-
-
+  return <>{children}</>
+}

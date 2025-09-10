@@ -4,7 +4,8 @@ import type { Tables, InsertDto, UpdateDto } from './supabase'
 export class SupabaseContentService {
   // Cache for storing fetched data
   private static cache = new Map<string, { data: any; timestamp: number }>()
-  private static CACHE_DURATION = 5 * 60 * 1000 // Increased to 5 minutes for better performance
+  private static CACHE_DURATION = 10 * 60 * 1000 // 10 minutes for better performance
+  private static MAX_CACHE_SIZE = 100 // Limit cache size to prevent memory issues
 
   // Clear expired cache entries
   private static clearExpiredCache() {
@@ -26,8 +27,16 @@ export class SupabaseContentService {
     return null
   }
 
-  // Set data in cache
+  // Set data in cache with size limit
   private static setCachedData(key: string, data: any) {
+    // Clear oldest entries if cache is too large
+    if (this.cache.size >= this.MAX_CACHE_SIZE) {
+      const oldestKey = this.cache.keys().next().value
+      if (oldestKey) {
+        this.cache.delete(oldestKey)
+      }
+    }
+    
     this.cache.set(key, { data, timestamp: Date.now() })
   }
 
@@ -79,8 +88,12 @@ export class SupabaseContentService {
     const cacheKey = 'all_projects'
     const cachedData = this.getCachedData(cacheKey)
     if (cachedData) {
+      console.log('Projects loaded from cache')
       return cachedData
     }
+
+    const startTime = performance.now()
+    console.log('Fetching projects from database...')
 
     const { data, error } = await supabase
       .from('projects')
@@ -88,12 +101,17 @@ export class SupabaseContentService {
       .eq('is_active', true)
       .order('created_at', { ascending: false })
 
+    const endTime = performance.now()
+    const duration = endTime - startTime
+
     if (error) {
-      console.error('Error fetching projects:', error)
+      console.error(`Error fetching projects (${duration.toFixed(2)}ms):`, error)
       return []
     }
 
     const result = data || []
+    console.log(`Projects fetched in ${duration.toFixed(2)}ms`)
+    
     // Cache the result
     this.setCachedData(cacheKey, result)
     return result

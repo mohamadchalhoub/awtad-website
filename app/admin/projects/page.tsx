@@ -55,7 +55,8 @@ const AdminProjectsPage = React.memo(function AdminProjectsPage() {
 
   const [editImage, setEditImage] = useState({
     name: '',
-    category: ''
+    category: '',
+    price: 0
   })
 
   // Success/Error states for image upload
@@ -234,16 +235,23 @@ const AdminProjectsPage = React.memo(function AdminProjectsPage() {
   const handleEditImage = async () => {
     if (!editingImage) return
 
+    // Validate price
+    if (editImage.price < 0) {
+      setError("Price must be a positive number!")
+      return
+    }
+
     try {
       const result = await SupabaseContentService.updateImage(editingImage.id, {
         name: editImage.name,
-        category: editImage.category
+        category: editImage.category,
+        price: editImage.price
       })
 
       if (result) {
         setShowImageDialog(false)
         setEditingImage(null)
-        setEditImage({ name: '', category: '' })
+        setEditImage({ name: '', category: '', price: 0 })
         SupabaseContentService.clearProjectCache()
         await loadData()
       }
@@ -315,7 +323,8 @@ const AdminProjectsPage = React.memo(function AdminProjectsPage() {
     setEditingImage(image)
     setEditImage({
       name: image.name,
-      category: image.category
+      category: image.category,
+      price: image.price || 0
     })
     setShowImageDialog(true)
   }
@@ -767,10 +776,11 @@ const AdminProjectsPage = React.memo(function AdminProjectsPage() {
                                     url: imageData.url,
                                     category: imageData.category,
                                     project_id: editingProject.id,
-                                    file_size: imageData.size || 0,
-                                    mime_type: 'image/jpeg',
-                                    alt_text: imageData.name,
-                                    is_cover_image: false
+                                    file_size: imageData.file_size || 0,
+                                    mime_type: imageData.mime_type || 'image/jpeg',
+                                    alt_text: imageData.alt_text || imageData.name,
+                                    is_cover_image: false,
+                                    price: imageData.price || 0
                                   })
                                   
                                   if (result) {
@@ -941,6 +951,18 @@ const AdminProjectsPage = React.memo(function AdminProjectsPage() {
                   id="image-category"
                   value={editImage.category}
                   onChange={(e) => setEditImage({ ...editImage, category: e.target.value })}
+                />
+              </div>
+              <div>
+                <Label htmlFor="image-price">Price (USD)</Label>
+                <Input
+                  id="image-price"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={editImage.price}
+                  onChange={(e) => setEditImage({ ...editImage, price: parseFloat(e.target.value) || 0 })}
+                  placeholder="0.00"
                 />
               </div>
               <div className="flex space-x-2">

@@ -29,6 +29,7 @@ interface ProjectImage {
   category: string
   uploadDate: string
   size: number
+  price: number
 }
 
 export default function ProjectDetailPage() {
@@ -70,7 +71,8 @@ export default function ProjectDetailPage() {
               url: img.url,
               category: img.category,
               uploadDate: img.created_at || new Date().toISOString(),
-              size: img.file_size || 0
+              size: img.file_size || 0,
+              price: img.price || 0
             }))
             
             setProjectImages(transformedImages)
@@ -128,6 +130,7 @@ I would like to place an order for the following project image:
 • Image Name: ${image.name}
 • Image Category: ${image.category}
 • Image Size: ${formatFileSize(image.size)}
+• Price: $${(image.price || 0).toFixed(2)}
 
 🔗 Project URL: ${window.location.href}
 
@@ -448,9 +451,14 @@ Thank you! I look forward to hearing from you.`
                     <div className="p-4 space-y-3">
                       <div className="space-y-1">
                         <h4 className="text-sm font-medium text-foreground truncate">{image.name}</h4>
-                        <p className="text-xs text-primary bg-primary/10 px-2 py-1 rounded w-fit">
-                          {image.category}
-                        </p>
+                        <div className="flex items-center justify-between">
+                          <p className="text-xs text-primary bg-primary/10 px-2 py-1 rounded w-fit">
+                            {image.category}
+                          </p>
+                          <p className="text-xs font-semibold text-green-600 bg-green-100 px-2 py-1 rounded">
+                            ${(image.price || 0).toFixed(2)}
+                          </p>
+                        </div>
                       </div>
                       <div className="flex items-center justify-between text-xs text-muted-foreground">
                         <span>{formatFileSize(image.size)}</span>

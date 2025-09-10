@@ -58,6 +58,3 @@ CREATE INDEX IF NOT EXISTS idx_about_content_section ON about_content(section_na
 
 
 
-
-
-

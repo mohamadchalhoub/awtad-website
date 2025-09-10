@@ -8,6 +8,7 @@ export interface ImageData {
   category: string
   uploadDate: string
   size: number
+  price: number
 }
 
 export interface ImageGallery {
@@ -18,7 +19,7 @@ export class ImageService {
   private static readonly STORAGE_KEY = "awtad_images"
   private static readonly MAX_FILE_SIZE = 5 * 1024 * 1024 // 5MB
 
-  static async uploadImage(file: File, category = "general", projectId?: number): Promise<ImageData | null> {
+  static async uploadImage(file: File, category = "general", projectId?: number, price = 0): Promise<ImageData | null> {
     try {
       if (file.size > this.MAX_FILE_SIZE) {
         throw new Error("File size too large. Maximum 5MB allowed.")
@@ -37,6 +38,7 @@ export class ImageService {
         category,
         uploadDate: new Date().toISOString(),
         size: file.size,
+        price: price,
       }
 
       this.saveImage(imageData)

@@ -9,16 +9,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Card, CardContent } from "@/components/ui/card"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Upload, Image as ImageIcon, FileImage, X } from "lucide-react"
+import { SupabaseContentService } from "@/lib/supabase-content"
+import type { Tables } from "@/lib/supabase"
+
+type ImageData = Tables<'images'>
 
 interface ImageUploadProps {
-  onUploadComplete?: (image: {
-    id: string
-    name: string
-    url: string
-    category: string
-    size: number
-    uploadDate: string
-  }) => void
+  onUploadComplete?: (image: ImageData) => void
   defaultCategory?: string
   projectId?: number
   categories?: { id: number; name: string }[]
@@ -28,6 +25,7 @@ export function ImageUpload({ onUploadComplete, defaultCategory = "general", pro
   const [isDragging, setIsDragging] = useState(false)
   const [isUploading, setIsUploading] = useState(false)
   const [category, setCategory] = useState(defaultCategory)
+  const [price, setPrice] = useState("")
   const [error, setError] = useState("")
   const [success, setSuccess] = useState("")
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
@@ -54,23 +52,43 @@ export function ImageUpload({ onUploadComplete, defaultCategory = "general", pro
       setSuccess("")
 
       try {
+        // Validate price input
+        const priceValue = parseFloat(price)
+        if (price && (isNaN(priceValue) || priceValue < 0)) {
+          setError("Price must be a valid positive number")
+          setIsUploading(false)
+          return
+        }
+
         const file = files[0]
         setSelectedFile(file)
         
         // Convert file to base64 data URL for persistent storage
         const dataUrl = await fileToDataUrl(file)
         
+        // Create image data for Supabase
         const imageData = {
-          id: Date.now().toString(36) + Math.random().toString(36).substr(2),
           name: file.name,
-          url: dataUrl, // This is now a persistent base64 data URL
+          url: dataUrl,
           category: category,
-          size: file.size,
-          uploadDate: new Date().toISOString()
+          project_id: projectId || null,
+          file_size: file.size,
+          mime_type: file.type,
+          alt_text: null,
+          is_cover_image: false,
+          created_by: null,
+          price: priceValue || 0
         }
 
-        setSuccess(`Image "${file.name}" uploaded successfully!`)
-        onUploadComplete?.(imageData)
+        // Upload to Supabase
+        const uploadedImage = await SupabaseContentService.createImage(imageData)
+        
+        if (uploadedImage) {
+          setSuccess(`Image "${file.name}" uploaded successfully!`)
+          onUploadComplete?.(uploadedImage)
+        } else {
+          setError("Failed to upload image to database")
+        }
         
         // Note: We don't need to revoke URLs anymore since we're using data URLs
       } catch (err) {
@@ -83,7 +101,7 @@ export function ImageUpload({ onUploadComplete, defaultCategory = "general", pro
         }, 3000)
       }
     },
-    [category, projectId, onUploadComplete],
+    [category, price, projectId, onUploadComplete],
   )
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
@@ -130,6 +148,20 @@ export function ImageUpload({ onUploadComplete, defaultCategory = "general", pro
         </Select>
       </div>
 
+      {/* Price Input */}
+      <div className="space-y-2">
+        <label className="text-sm font-medium text-foreground">Price (USD)</label>
+        <Input
+          type="number"
+          step="0.01"
+          min="0"
+          value={price}
+          onChange={(e) => setPrice(e.target.value)}
+          placeholder="0.00"
+          className="bg-background border-border"
+        />
+      </div>
+
       {/* File Selection Display */}
       {selectedFile && (
         <Card className="bg-green-50 border-green-200">
@@ -140,7 +172,7 @@ export function ImageUpload({ onUploadComplete, defaultCategory = "general", pro
                 <div>
                   <p className="text-sm font-medium text-green-800">{selectedFile.name}</p>
                   <p className="text-xs text-green-600">
-                    {(selectedFile.size / 1024 / 1024).toFixed(2)} MB • {category}
+                    {(selectedFile.size / 1024 / 1024).toFixed(2)} MB • {category} • ${parseFloat(price || "0").toFixed(2)}
                   </p>
                 </div>
               </div>

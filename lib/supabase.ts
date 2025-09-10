@@ -211,6 +211,7 @@ export interface Database {
           is_cover_image: boolean
           created_by: string | null
           created_at: string
+          price: number
         }
         Insert: {
           id?: string
@@ -225,6 +226,7 @@ export interface Database {
           is_cover_image?: boolean
           created_by?: string | null
           created_at?: string
+          price?: number
         }
         Update: {
           id?: string
@@ -239,6 +241,7 @@ export interface Database {
           is_cover_image?: boolean
           created_by?: string | null
           created_at?: string
+          price?: number
         }
       }
       homepage_content: {
