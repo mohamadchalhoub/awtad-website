@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button"
 import { useContent } from "@/hooks/use-content"
 import { SupabaseContentService } from "@/lib/supabase-content"
 import { useRouter, useParams } from "next/navigation"
+import Link from "next/link"
 import { useEffect, useState } from "react"
 import { ArrowLeft, Calendar, Tag, Image as ImageIcon, Share2, Download, X, ChevronLeft, ChevronRight, Maximize2, MessageCircle } from "lucide-react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
@@ -20,6 +21,7 @@ interface ProjectWithCover {
   year: string
   coverImageId?: string
   coverImageUrl?: string
+  parent_id?: number | null
 }
 
 interface ProjectImage {
@@ -40,6 +42,7 @@ export default function ProjectDetailPage() {
   const projectId = parseInt(params.id as string)
   
   const [project, setProject] = useState<ProjectWithCover | null>(null)
+  const [parentProject, setParentProject] = useState<ProjectWithCover | null>(null)
   const [projectImages, setProjectImages] = useState<ProjectImage[]>([])
   const [subProjects, setSubProjects] = useState<ProjectWithCover[]>([])
   const [loading, setLoading] = useState(true)
@@ -56,6 +59,14 @@ export default function ProjectDetailPage() {
         if (foundProject) {
           // The project already has coverImageUrl from the content hook
           setProject(foundProject)
+          
+          // If this is a subproject, find and set the parent project
+          if (foundProject.parent_id) {
+            const parent = content.projects.find(p => p.id === foundProject.parent_id)
+            if (parent) {
+              setParentProject(parent)
+            }
+          }
 
           // Get project images from Supabase
           try {
@@ -398,6 +409,24 @@ Thank you! I look forward to hearing from you.`
                     <span className="text-sm">{project.year}</span>
                   </div>
                 </div>
+                {/* Breadcrumb Navigation for Subprojects */}
+                {parentProject && (
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground mb-4">
+                    <Link href="/projects" className="hover:text-primary transition-colors">
+                      Projects
+                    </Link>
+                    <span>/</span>
+                    <Link 
+                      href={`/projects/${parentProject.id}`} 
+                      className="hover:text-primary transition-colors"
+                    >
+                      {parentProject.title}
+                    </Link>
+                    <span>/</span>
+                    <span className="text-foreground font-medium">{project.title}</span>
+                  </div>
+                )}
+                
                 <h1 className="text-4xl md:text-5xl font-mono font-bold text-foreground">
                   {project.title}
                 </h1>

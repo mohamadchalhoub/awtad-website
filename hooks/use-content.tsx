@@ -12,6 +12,7 @@ interface SiteContent {
     year: string
     coverImageId?: string
     coverImageUrl?: string
+    parent_id?: number | null
   }>
   homepage: {
     heroTitle: string
@@ -88,7 +89,8 @@ export function ContentProvider({ children }: { children: ReactNode }) {
             description: project.description,
             year: project.year,
             coverImageId: project.cover_image_id || undefined,
-            coverImageUrl
+            coverImageUrl,
+            parent_id: project.parent_id
           }
         }),
         homepage: {

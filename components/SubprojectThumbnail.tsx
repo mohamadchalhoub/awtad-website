@@ -35,7 +35,7 @@ export default function SubprojectThumbnail({
 
   return (
     <Link
-      href={`/projects/${parentSlug}/${subproject.slug || subproject.id}`}
+      href={`/projects/${subproject.slug || subproject.id}`}
       className={`flex-shrink-0 group ${className}`}
       aria-label={`View ${subproject.title} subproject`}
     >
