@@ -23,6 +23,7 @@ interface ProjectWithCover {
   year: string
   coverImageId?: string
   coverImageUrl?: string
+  parent_id?: number | null
 }
 
 export default function HomePage() {
@@ -64,7 +65,8 @@ export default function HomePage() {
               description: project.description,
               year: project.year,
               coverImageId: project.cover_image_id || undefined,
-              coverImageUrl: coverImageUrl
+              coverImageUrl: coverImageUrl,
+              parent_id: project.parent_id
             }
           })
         )

@@ -9,6 +9,8 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Switch } from "@/components/ui/switch"
 
 import { SupabaseContentService } from "@/lib/supabase-content"
 import React, { useState, useEffect, useMemo, useCallback } from "react"
@@ -19,7 +21,8 @@ import { ProjectsGridSkeleton } from "@/components/loading-skeleton"
 import { useContentAdmin } from "@/hooks/use-content"
 
 interface ProjectWithCover extends Tables<'projects'> {
-  coverImage?: Tables<'images'>
+  coverImage?: Tables<'images'> | null
+  subProjects?: ProjectWithCover[]
 }
 
 const AdminProjectsPage = React.memo(function AdminProjectsPage() {
@@ -42,7 +45,9 @@ const AdminProjectsPage = React.memo(function AdminProjectsPage() {
     category: '',
     year: '',
     description: '',
-    featured: false
+    featured: false,
+    parent_id: null as number | null,
+    isSubProject: false
   })
 
   const [editProject, setEditProject] = useState({
@@ -50,7 +55,9 @@ const AdminProjectsPage = React.memo(function AdminProjectsPage() {
     category: '',
     year: '',
     description: '',
-    featured: false
+    featured: false,
+    parent_id: null as number | null,
+    isSubProject: false
   })
 
   const [editImage, setEditImage] = useState({
@@ -145,29 +152,34 @@ const AdminProjectsPage = React.memo(function AdminProjectsPage() {
         
         if (newCategory) {
           categoryToUse = newCategory.name
-          // Refresh categories list
-          const updatedCategories = await SupabaseContentService.getAllCategories()
-          setCategories(updatedCategories)
+          // Update categories state without full refresh
+          setCategories(prev => [...prev, newCategory])
         }
       }
 
-      const result = await SupabaseContentService.createProject({
+      // If it's a subproject, it cannot be featured
+      const projectData: any = {
         title: newProject.title,
         category: categoryToUse,
         year: newProject.year,
         description: newProject.description,
         is_active: true,
-        featured: newProject.featured
-      } as any)
+        parent_id: newProject.isSubProject ? newProject.parent_id : null,
+        featured: newProject.isSubProject ? false : newProject.featured
+      }
+
+      const result = await SupabaseContentService.createProject(projectData)
 
       if (result) {
+        // Update projects state without full refresh
+        setProjects(prev => [...prev, result])
         setShowAddDialog(false)
-        setNewProject({ title: '', category: '', year: '', description: '', featured: false })
+        setNewProject({ title: '', category: '', year: '', description: '', featured: false, parent_id: null, isSubProject: false })
         SupabaseContentService.clearProjectCache()
-        await loadData()
+        setUploadSuccess(`Project "${result.title}" created successfully!`)
       }
     } catch (error) {
-      // Error adding project: error
+      setError('Error adding project: ' + (error instanceof Error ? error.message : 'Unknown error'))
     }
   }
 
@@ -191,30 +203,34 @@ const AdminProjectsPage = React.memo(function AdminProjectsPage() {
         
         if (newCategory) {
           categoryToUse = newCategory.name
-          // Refresh categories list
-          const updatedCategories = await SupabaseContentService.getAllCategories()
-          setCategories(updatedCategories)
+          // Update categories state without full refresh
+          setCategories(prev => [...prev, newCategory])
         }
       }
 
-             // Updating project with featured status: editProject.featured
-       const result = await SupabaseContentService.updateProject(editingProject.id, {
+      // If it's a subproject, it cannot be featured
+      const updateData: any = {
          title: editProject.title,
          category: categoryToUse,
          year: editProject.year,
          description: editProject.description,
-         featured: editProject.featured
-       } as any)
+        parent_id: editProject.isSubProject ? editProject.parent_id : null,
+        featured: editProject.isSubProject ? false : editProject.featured
+      }
+
+      const result = await SupabaseContentService.updateProject(editingProject.id, updateData)
 
       if (result) {
+        // Update projects state without full refresh
+        setProjects(prev => prev.map(p => p.id === editingProject.id ? { ...p, ...updateData } : p))
         setShowEditDialog(false)
         setEditingProject(null)
-        setEditProject({ title: '', category: '', year: '', description: '', featured: false })
+        setEditProject({ title: '', category: '', year: '', description: '', featured: false, parent_id: null, isSubProject: false })
         SupabaseContentService.clearProjectCache()
-        await loadData()
+        setUploadSuccess(`Project "${result.title}" updated successfully!`)
       }
     } catch (error) {
-      // Error updating project: error
+      setError('Error updating project: ' + (error instanceof Error ? error.message : 'Unknown error'))
     }
   }
 
@@ -223,11 +239,15 @@ const AdminProjectsPage = React.memo(function AdminProjectsPage() {
       try {
         const result = await SupabaseContentService.deleteProject(projectId)
         if (result) {
+          // Update projects state without full refresh
+          setProjects(prev => prev.filter(p => p.id !== projectId))
+          // Also remove any images associated with this project
+          setImages(prev => prev.filter(img => img.project_id !== projectId))
           SupabaseContentService.clearProjectCache()
-          await loadData()
+          setUploadSuccess('Project deleted successfully!')
         }
       } catch (error) {
-        // Error deleting project: error
+        setError('Error deleting project: ' + (error instanceof Error ? error.message : 'Unknown error'))
       }
     }
   }
@@ -249,27 +269,44 @@ const AdminProjectsPage = React.memo(function AdminProjectsPage() {
       })
 
       if (result) {
+        // Update images state without full refresh
+        setImages(prev => prev.map(img => img.id === editingImage.id ? { ...img, ...editImage } : img))
         setShowImageDialog(false)
         setEditingImage(null)
         setEditImage({ name: '', category: '', price: 0 })
         SupabaseContentService.clearProjectCache()
-        await loadData()
+        setUploadSuccess(`Image "${editImage.name}" updated successfully!`)
       }
     } catch (error) {
-      // Error updating image: error
+      setError('Error updating image: ' + (error instanceof Error ? error.message : 'Unknown error'))
     }
   }
 
   const handleDeleteImage = async (imageId: string) => {
-    if (confirm('Are you sure you want to delete this image?')) {
+    if (confirm('Are you sure you want to delete this image? If it\'s being used as a cover image, it will be removed from projects first.')) {
       try {
+        console.log('Attempting to delete image with ID:', imageId)
         const result = await SupabaseContentService.deleteImage(imageId)
         if (result) {
+          console.log('Image deleted successfully')
+          // Update images state without full refresh
+          setImages(prev => prev.filter(img => img.id !== imageId))
+          // Also update projects to remove cover_image_id if this was a cover image
+          setProjects(prev => prev.map(project => 
+            project.cover_image_id === imageId 
+              ? { ...project, cover_image_id: null }
+              : project
+          ))
           SupabaseContentService.clearProjectCache()
-          await loadData()
+          setUploadSuccess('Image deleted successfully! If it was a cover image, it has been removed from projects.')
+        } else {
+          console.error('Failed to delete image - result was false')
+          setError('Failed to delete image. Please try again.')
         }
       } catch (error) {
-        // Error deleting image: error
+        console.error('Error deleting image:', error)
+        console.error('Error details:', error instanceof Error ? error.message : 'Unknown error')
+        setError('Error deleting image: ' + (error instanceof Error ? error.message : 'Unknown error'))
       }
     }
   }
@@ -278,16 +315,20 @@ const AdminProjectsPage = React.memo(function AdminProjectsPage() {
     try {
       const result = await SupabaseContentService.setCoverImage(imageId, projectId)
       if (result) {
+        // Update projects state without full refresh
+        setProjects(prev => prev.map(project => 
+          project.id === projectId 
+            ? { ...project, cover_image_id: imageId }
+            : project
+        ))
         SupabaseContentService.clearProjectCache()
-        await loadData()
         await refreshContent()
         setUploadSuccess('Cover image set successfully! It will now appear on public pages.')
       } else {
         setUploadError('Failed to set cover image. Please try again.')
       }
     } catch (error) {
-      // Error setting cover image: error
-      setUploadError('Error setting cover image: ' + error)
+      setUploadError('Error setting cover image: ' + (error instanceof Error ? error.message : 'Unknown error'))
     }
   }
 
@@ -297,11 +338,17 @@ const AdminProjectsPage = React.memo(function AdminProjectsPage() {
         cover_image_id: null
       })
       if (result) {
+        // Update projects state without full refresh
+        setProjects(prev => prev.map(project => 
+          project.id === projectId 
+            ? { ...project, cover_image_id: null }
+            : project
+        ))
         SupabaseContentService.clearProjectCache()
-        await loadData()
+        setUploadSuccess('Cover image removed successfully!')
       }
     } catch (error) {
-      // Error removing cover image: error
+      setError('Error removing cover image: ' + (error instanceof Error ? error.message : 'Unknown error'))
     }
   }
 
@@ -314,7 +361,9 @@ const AdminProjectsPage = React.memo(function AdminProjectsPage() {
       category: project.category,
       year: project.year,
       description: project.description,
-      featured: Boolean((project as Record<string, unknown>).featured)
+      featured: Boolean((project as Record<string, unknown>).featured),
+      parent_id: project.parent_id,
+      isSubProject: project.parent_id !== null
     })
     setShowEditDialog(true)
   }
@@ -347,6 +396,19 @@ const AdminProjectsPage = React.memo(function AdminProjectsPage() {
       coverImage: getCoverImage(project.id)
     }))
   }, [projects, getCoverImage])
+
+  // Group projects by parent (for displaying hierarchy)
+  const groupedProjects = useMemo(() => {
+    const parentProjects = projectsWithCoverImages.filter(p => !p.parent_id)
+    const result: ProjectWithCover[] = []
+    
+    parentProjects.forEach(parent => {
+      const subProjects = projectsWithCoverImages.filter(p => p.parent_id === parent.id)
+      result.push({ ...parent, subProjects } as ProjectWithCover)
+    })
+    
+    return result
+  }, [projectsWithCoverImages])
 
   if (loading) {
     return (
@@ -411,7 +473,24 @@ const AdminProjectsPage = React.memo(function AdminProjectsPage() {
                     setLoading(true)
                     setError(null)
                     SupabaseContentService.clearProjectCache()
-                    await loadData()
+                    
+                    try {
+                      // Fetch fresh data without full page refresh
+                      const [projectsData, imagesData, categoriesData] = await Promise.all([
+                        SupabaseContentService.getAllProjects(),
+                        SupabaseContentService.getAllImages(),
+                        SupabaseContentService.getAllCategories()
+                      ])
+                      
+                      setProjects(projectsData)
+                      setImages(imagesData)
+                      setCategories(categoriesData)
+                      setUploadSuccess('Data refreshed successfully!')
+                    } catch (error) {
+                      setError('Error refreshing data: ' + (error instanceof Error ? error.message : 'Unknown error'))
+                    } finally {
+                      setLoading(false)
+                    }
                   }}
                   className="text-sm"
                   disabled={loading}
@@ -428,84 +507,123 @@ const AdminProjectsPage = React.memo(function AdminProjectsPage() {
               </div>
               <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
                 <DialogTrigger asChild>
-                  <Button className="gold-gradient text-primary-foreground hover:opacity-90">
+                  <Button className="gold-gradient text-primary-foreground hover:opacity-90 h-9 px-4 text-sm">
                     <Plus className="w-4 h-4 mr-2" />
                     Add New Project
                   </Button>
                 </DialogTrigger>
-                <DialogContent>
+                <DialogContent className="max-w-2xl">
                   <DialogHeader>
-                    <DialogTitle>Add New Project</DialogTitle>
+                    <DialogTitle className="text-lg font-semibold">Add New Project</DialogTitle>
                   </DialogHeader>
-                  <div className="space-y-4">
+                  <div className="space-y-3">
+                    <div className="grid grid-cols-2 gap-3">
                     <div>
-                      <Label htmlFor="title">Title</Label>
+                        <Label htmlFor="title" className="text-xs font-medium">Title</Label>
                       <Input
                         id="title"
                         value={newProject.title}
                         onChange={(e) => setNewProject({ ...newProject, title: e.target.value })}
                         placeholder="Project title"
+                          className="h-9 text-sm"
                       />
                     </div>
                     <div>
-                      <Label htmlFor="category">Category</Label>
-                      <div className="space-y-2">
+                        <Label htmlFor="year" className="text-xs font-medium">Year</Label>
+                        <Input
+                          id="year"
+                          value={newProject.year}
+                          onChange={(e) => setNewProject({ ...newProject, year: e.target.value })}
+                          placeholder="2024"
+                          className="h-9 text-sm"
+                        />
+                      </div>
+                    </div>
+                    
+                    <div>
+                      <Label htmlFor="category" className="text-xs font-medium">Category</Label>
                         <Input
                           id="category"
                           value={newProject.category}
                           onChange={(e) => setNewProject({ ...newProject, category: e.target.value })}
-                          placeholder="Type a category name (e.g., Commercial, Industrial, or create new)"
+                        placeholder="e.g., Commercial, Industrial"
                           list="category-suggestions"
+                        className="h-9 text-sm"
                         />
                         <datalist id="category-suggestions">
                           {categories.map(category => (
                             <option key={category.id} value={category.name} />
                           ))}
                         </datalist>
-                        <p className="text-xs text-muted-foreground">
-                          Type an existing category or create a new one. Existing categories will be auto-completed.
-                        </p>
                       </div>
-                    </div>
+                    
                     <div>
-                      <Label htmlFor="year">Year</Label>
-                      <Input
-                        id="year"
-                        value={newProject.year}
-                        onChange={(e) => setNewProject({ ...newProject, year: e.target.value })}
-                        placeholder="2024"
-                      />
-                    </div>
-                    <div>
-                      <Label htmlFor="description">Description</Label>
+                      <Label htmlFor="description" className="text-xs font-medium">Description</Label>
                       <Textarea
                         id="description"
                         value={newProject.description}
                         onChange={(e) => setNewProject({ ...newProject, description: e.target.value })}
                         placeholder="Project description"
-                        rows={3}
+                        rows={2}
+                        className="text-sm resize-none"
                       />
                     </div>
-                    <div className="flex items-center space-x-2">
+                    
+                    {/* Parent/Subproject Selection */}
+                    <div className="space-y-2 border-t pt-3">
+                      <div className="flex items-center justify-between bg-muted/30 p-2 rounded">
+                        <Label htmlFor="isSubProject" className="text-xs font-medium">
+                          Is this a subproject?
+                        </Label>
+                        <Switch
+                          id="isSubProject"
+                          checked={newProject.isSubProject}
+                          onCheckedChange={(checked) => setNewProject({ ...newProject, isSubProject: checked, featured: checked ? false : newProject.featured })}
+                        />
+                      </div>
+                      
+                      {newProject.isSubProject && (
+                        <div>
+                          <Label htmlFor="parent-project" className="text-xs font-medium">Parent Project</Label>
+                          <Select 
+                            value={newProject.parent_id?.toString() || ''} 
+                            onValueChange={(value) => setNewProject({ ...newProject, parent_id: parseInt(value) })}
+                          >
+                            <SelectTrigger className="h-9 text-sm">
+                              <SelectValue placeholder="Select a parent project" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {projects.filter(p => !p.parent_id).map(project => (
+                                <SelectItem key={project.id} value={project.id.toString()}>
+                                  {project.title}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      )}
+                      
+                      {!newProject.isSubProject && (
+                        <div className="flex items-center gap-2 bg-muted/30 p-2 rounded">
                       <input
                         id="featured"
                         type="checkbox"
                         checked={newProject.featured}
                         onChange={(e) => setNewProject({ ...newProject, featured: e.target.checked })}
-                        className="w-4 h-4 text-primary bg-background border-border rounded focus:ring-primary focus:ring-offset-0"
+                            className="w-3.5 h-3.5 text-primary bg-background border-border rounded focus:ring-primary focus:ring-offset-0"
                       />
-                      <Label htmlFor="featured" className="text-sm font-medium">
-                        ⭐ Featured Project
+                          <Label htmlFor="featured" className="text-xs font-medium cursor-pointer">
+                            ⭐ Featured on homepage
                       </Label>
-                      <div className="text-xs text-muted-foreground ml-2">
-                        (Will appear on homepage)
                       </div>
+                      )}
                     </div>
-                    <div className="flex space-x-2">
-                      <Button onClick={handleAddProject} className="flex-1">
+                    
+                    <div className="flex gap-2 pt-2">
+                      <Button type="button" onClick={handleAddProject} className="flex-1 h-9 text-sm">
                         Add Project
                       </Button>
-                      <Button variant="outline" onClick={() => setShowAddDialog(false)} className="flex-1">
+                      <Button type="button" variant="outline" onClick={() => setShowAddDialog(false)} className="flex-1 h-9 text-sm">
                         Cancel
                       </Button>
                     </div>
@@ -516,35 +634,27 @@ const AdminProjectsPage = React.memo(function AdminProjectsPage() {
 
 
 
-            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="space-y-3">
               {loading ? (
                 // Loading skeleton
-                Array.from({ length: 6 }).map((_, index) => (
-                  <Card key={`skeleton-${index}`} className="bg-card border-border animate-pulse">
-                    <CardContent className="p-0">
-                      <div className="aspect-video bg-muted rounded-t-lg"></div>
-                      <div className="p-4 space-y-3">
                         <div className="space-y-2">
-                          <div className="flex items-center justify-between">
-                            <div className="h-4 bg-muted rounded w-16"></div>
-                            <div className="h-4 bg-muted rounded w-12"></div>
+                  {Array.from({ length: 6 }).map((_, index) => (
+                    <div key={`skeleton-${index}`} className="bg-card border border-border rounded-lg p-3 animate-pulse">
+                      <div className="flex items-center gap-3">
+                        <div className="w-16 h-16 bg-muted rounded"></div>
+                        <div className="flex-1 space-y-2">
+                          <div className="h-4 bg-muted rounded w-1/3"></div>
+                          <div className="h-3 bg-muted rounded w-1/2"></div>
                           </div>
-                          <div className="h-5 bg-muted rounded w-3/4"></div>
-                          <div className="h-4 bg-muted rounded w-full"></div>
+                        <div className="flex gap-2">
+                          <div className="w-16 h-8 bg-muted rounded"></div>
+                          <div className="w-16 h-8 bg-muted rounded"></div>
                         </div>
-                        <div className="flex items-center justify-between">
-                          <div className="h-3 bg-muted rounded w-20"></div>
-                          <div className="h-3 bg-muted rounded w-24"></div>
                         </div>
-                        <div className="flex space-x-2">
-                          <div className="h-8 bg-muted rounded flex-1"></div>
-                          <div className="h-8 bg-muted rounded flex-1"></div>
                         </div>
+                  ))}
                       </div>
-                    </CardContent>
-                  </Card>
-                ))
-              ) : projectsWithCoverImages.length === 0 ? (
+              ) : groupedProjects.length === 0 ? (
                 <div className="col-span-full text-center py-12">
                   <div className="text-6xl mb-4">🏗️</div>
                   <h3 className="text-xl font-mono font-semibold text-foreground mb-2">
@@ -558,6 +668,7 @@ const AdminProjectsPage = React.memo(function AdminProjectsPage() {
                   </p>
                   {!loading && (
                     <Button
+                      type="button"
                       onClick={() => setShowAddDialog(true)}
                       className="gold-gradient text-primary-foreground hover:opacity-90"
                     >
@@ -568,100 +679,179 @@ const AdminProjectsPage = React.memo(function AdminProjectsPage() {
                 </div>
               ) : (
                 <>
-                  {projectsWithCoverImages.slice(0, displayLimit).map((project) => {
-                    const projectImages = getProjectImages(project.id)
-                    const coverImage = project.coverImage
+                  {groupedProjects.slice(0, displayLimit).map((parentProject) => {
+                    const projectImages = getProjectImages(parentProject.id)
+                    const coverImage = parentProject.coverImage
                     
                     return (
-                      <Card key={project.id} className="bg-card border-border hover:border-primary/50 transition-all">
-                        <CardContent className="p-0">
-                          <div className="aspect-video bg-muted flex items-center justify-center overflow-hidden relative rounded-t-lg">
+                      <div key={parentProject.id} className="space-y-1">
+                        {/* Parent Project - Compact Row */}
+                        <div className="bg-card border border-border rounded-lg hover:border-primary/30 transition-all group">
+                          <div className="flex items-center gap-3 p-3">
+                            {/* Thumbnail */}
+                            <div className="w-20 h-20 flex-shrink-0 bg-muted rounded overflow-hidden relative">
                             {coverImage && coverImage.url ? (
                               <img 
                                 src={coverImage.url} 
                                 alt={coverImage.name} 
-                                className="w-full h-full object-cover object-center min-w-full min-h-full" 
+                                  className="w-full h-full object-cover" 
                                 loading="lazy"
-                                decoding="async"
-                                style={{ objectPosition: 'center center' }}
-                                onError={(e) => {
-                                  // Failed to load cover image
-                                  e.currentTarget.style.display = 'none'
-                                  e.currentTarget.nextElementSibling?.classList.remove('hidden')
-                                }}
-                                onLoad={() => {
-                                  // Image loaded successfully
-                                }}
-                              />
-                            ) : null}
-                            <div className={`absolute inset-0 flex items-center justify-center text-muted-foreground ${coverImage && coverImage.url ? 'hidden' : ''}`}>
-                              <div className="text-center">
-                                <div className="text-4xl mb-2">🏗️</div>
-                                <p className="text-sm">No cover image</p>
+                                />
+                              ) : (
+                                <div className="w-full h-full flex items-center justify-center text-muted-foreground text-2xl">
+                                  🏗️
                               </div>
-                            </div>
-                            {coverImage && coverImage.url && (
-                              <div className="absolute top-2 right-2 bg-primary/90 text-primary-foreground text-xs px-2 py-1 rounded">
-                                Cover
+                              )}
+                              {parentProject.featured && (
+                                <div className="absolute top-0.5 left-0.5 bg-yellow-500 text-white text-[10px] px-1 py-0.5 rounded">
+                                  ⭐
                               </div>
                             )}
                           </div>
-                          <div className="p-4 space-y-3">
-                            <div className="space-y-2">
-                              <div className="flex items-center justify-between">
-                                <span className="text-xs text-primary bg-primary/10 px-2 py-1 rounded">
-                                  {project.category}
-                                </span>
-                                <span className="text-xs text-muted-foreground font-mono">{project.year}</span>
-                              </div>
-                              <h3 className="text-lg font-mono font-semibold text-foreground">
-                                {project.title}
-                              </h3>
-                              <p className="text-sm text-muted-foreground leading-relaxed line-clamp-2">
-                                {project.description}
-                              </p>
-                            </div>
                             
-                            <div className="flex items-center justify-between text-xs text-muted-foreground">
+                            {/* Project Info */}
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2 mb-1">
+                                <span className="text-gray-400 text-sm">📁</span>
+                                <h3 className="font-semibold text-sm text-foreground truncate">
+                                  {parentProject.title}
+                                </h3>
+                                <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded">
+                                  {parentProject.category}
+                                </span>
+                                <span className="text-xs text-muted-foreground">
+                                  {parentProject.year}
+                                </span>
+                              </div>
+                              <p className="text-xs text-muted-foreground line-clamp-1 mb-1">
+                                {parentProject.description}
+                              </p>
+                              <div className="flex items-center gap-3 text-xs text-muted-foreground">
                               <span>{projectImages.length} images</span>
-                              <span>{new Date(project.created_at).toLocaleDateString()}</span>
+                                {parentProject.subProjects && parentProject.subProjects.length > 0 && (
+                                  <span>• {parentProject.subProjects.length} subprojects</span>
+                                )}
+                                <span>• {new Date(parentProject.created_at).toLocaleDateString()}</span>
+                              </div>
                             </div>
 
-                            <div className="flex space-x-2">
+                            {/* Actions */}
+                            <div className="flex items-center gap-2">
                               <Button
+                                type="button"
                                 size="sm"
-                                variant="outline"
-                                onClick={() => openEditDialog(project)}
-                                className="flex-1 border-primary/30 text-primary hover:bg-primary hover:text-primary-foreground bg-transparent"
+                                variant="ghost"
+                                onClick={() => openEditDialog(parentProject)}
+                                className="h-8 px-3 text-xs hover:bg-primary/10 hover:text-primary"
                               >
                                 <Edit className="w-3 h-3 mr-1" />
                                 Edit
                               </Button>
                               <Button
+                                type="button"
                                 size="sm"
-                                variant="outline"
-                                onClick={() => handleDeleteProject(project.id)}
-                                className="flex-1 border-red-300 text-red-600 hover:bg-red-50 bg-transparent"
+                                variant="ghost"
+                                onClick={() => handleDeleteProject(parentProject.id)}
+                                className="h-8 px-3 text-xs hover:bg-red-50 hover:text-red-600"
                               >
                                 <Trash2 className="w-3 h-3 mr-1" />
                                 Delete
                               </Button>
                             </div>
                           </div>
-                        </CardContent>
-                      </Card>
+                        </div>
+                        
+                        {/* Subprojects - Compact Nested Rows */}
+                        {parentProject.subProjects && parentProject.subProjects.length > 0 && (
+                          <div className="ml-8 space-y-1">
+                            {parentProject.subProjects.map((subProject) => {
+                              const subProjectImages = getProjectImages(subProject.id)
+                              const subCoverImage = subProject.coverImage
+                              
+                              return (
+                                <div key={subProject.id} className="bg-card/50 border border-border/50 rounded-lg hover:border-primary/20 transition-all group">
+                                  <div className="flex items-center gap-3 p-2.5">
+                                    {/* Thumbnail - smaller */}
+                                    <div className="w-14 h-14 flex-shrink-0 bg-muted rounded overflow-hidden">
+                                      {subCoverImage && subCoverImage.url ? (
+                                        <img 
+                                          src={subCoverImage.url} 
+                                          alt={subCoverImage.name} 
+                                          className="w-full h-full object-cover" 
+                                          loading="lazy"
+                                        />
+                                      ) : (
+                                        <div className="w-full h-full flex items-center justify-center text-muted-foreground text-lg">
+                                          📄
+                                        </div>
+                                      )}
+                                    </div>
+                                    
+                                    {/* Subproject Info */}
+                                    <div className="flex-1 min-w-0">
+                                      <div className="flex items-center gap-2 mb-0.5">
+                                        <span className="text-gray-400 text-xs">↳</span>
+                                        <h4 className="font-medium text-xs text-foreground truncate">
+                                          {subProject.title}
+                                        </h4>
+                                        <span className="text-[10px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
+                                          {subProject.category}
+                                        </span>
+                                        <span className="text-[10px] text-muted-foreground">
+                                          {subProject.year}
+                                        </span>
+                                      </div>
+                                      <p className="text-[11px] text-muted-foreground line-clamp-1 mb-0.5">
+                                        {subProject.description}
+                                      </p>
+                                      <div className="text-[10px] text-muted-foreground">
+                                        {subProjectImages.length} images
+                                      </div>
+                                    </div>
+                                    
+                                    {/* Actions - smaller */}
+                                    <div className="flex items-center gap-1.5">
+                                      <Button
+                                        type="button"
+                                        size="sm"
+                                        variant="ghost"
+                                        onClick={() => openEditDialog(subProject)}
+                                        className="h-7 px-2 text-[11px] hover:bg-primary/10 hover:text-primary"
+                                      >
+                                        <Edit className="w-3 h-3 mr-0.5" />
+                                        Edit
+                                      </Button>
+                                      <Button
+                                        type="button"
+                                        size="sm"
+                                        variant="ghost"
+                                        onClick={() => handleDeleteProject(subProject.id)}
+                                        className="h-7 px-2 text-[11px] hover:bg-red-50 hover:text-red-600"
+                                      >
+                                        <Trash2 className="w-3 h-3 mr-0.5" />
+                                        Delete
+                                      </Button>
+                                    </div>
+                                  </div>
+                                </div>
+                              )
+                            })}
+                          </div>
+                        )}
+                      </div>
                     )
                   })}
                   
                   {/* Load More Button */}
-                  {projectsWithCoverImages.length > displayLimit && (
-                    <div className="col-span-full text-center py-6">
+                  {groupedProjects.length > displayLimit && (
+                    <div className="text-center py-6">
                       <Button
+                        type="button"
                         onClick={() => setDisplayLimit(prev => prev + 12)}
                         variant="outline"
                         className="px-8"
                       >
-                        Load More Projects ({displayLimit} of {projectsWithCoverImages.length})
+                        Load More Projects ({displayLimit} of {groupedProjects.length})
                       </Button>
                     </div>
                   )}
@@ -683,72 +873,111 @@ const AdminProjectsPage = React.memo(function AdminProjectsPage() {
                 <TabsTrigger value="images">Project Images</TabsTrigger>
               </TabsList>
               
-              <TabsContent value="details" className="space-y-4">
+              <TabsContent value="details" className="space-y-3">
+                <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <Label htmlFor="edit-title">Title</Label>
+                    <Label htmlFor="edit-title" className="text-xs font-medium">Title</Label>
                   <Input
                     id="edit-title"
                     value={editProject.title}
                     onChange={(e) => setEditProject({ ...editProject, title: e.target.value })}
+                      className="h-9 text-sm"
                   />
                 </div>
                 <div>
-                  <Label htmlFor="edit-category">Category</Label>
-                  <div className="space-y-2">
+                    <Label htmlFor="edit-year" className="text-xs font-medium">Year</Label>
+                    <Input
+                      id="edit-year"
+                      value={editProject.year}
+                      onChange={(e) => setEditProject({ ...editProject, year: e.target.value })}
+                      className="h-9 text-sm"
+                    />
+                  </div>
+                </div>
+                
+                <div>
+                  <Label htmlFor="edit-category" className="text-xs font-medium">Category</Label>
                     <Input
                       id="edit-category"
                       value={editProject.category}
                       onChange={(e) => setEditProject({ ...editProject, category: e.target.value })}
-                      placeholder="Type a category name (e.g., Commercial, Industrial, or create new)"
+                    placeholder="e.g., Commercial, Industrial"
                       list="edit-category-suggestions"
+                    className="h-9 text-sm"
                     />
                     <datalist id="edit-category-suggestions">
                       {categories.map(category => (
                         <option key={category.id} value={category.name} />
                       ))}
                     </datalist>
-                    <p className="text-xs text-muted-foreground">
-                      Type an existing category or create a new one. Existing categories will be auto-completed.
-                    </p>
                   </div>
-                </div>
+                
                 <div>
-                  <Label htmlFor="edit-year">Year</Label>
-                  <Input
-                    id="edit-year"
-                    value={editProject.year}
-                    onChange={(e) => setEditProject({ ...editProject, year: e.target.value })}
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="edit-description">Description</Label>
+                  <Label htmlFor="edit-description" className="text-xs font-medium">Description</Label>
                   <Textarea
                     id="edit-description"
                     value={editProject.description}
                     onChange={(e) => setEditProject({ ...editProject, description: e.target.value })}
-                    rows={3}
+                    rows={2}
+                    className="text-sm resize-none"
                   />
                 </div>
-                <div className="flex items-center space-x-2">
+                
+                {/* Parent/Subproject Selection */}
+                <div className="space-y-2 border-t pt-3">
+                  <div className="flex items-center justify-between bg-muted/30 p-2 rounded">
+                    <Label htmlFor="edit-isSubProject" className="text-xs font-medium">
+                      Is this a subproject?
+                    </Label>
+                    <Switch
+                      id="edit-isSubProject"
+                      checked={editProject.isSubProject}
+                      onCheckedChange={(checked) => setEditProject({ ...editProject, isSubProject: checked, featured: checked ? false : editProject.featured })}
+                    />
+                  </div>
+                  
+                  {editProject.isSubProject && (
+                    <div>
+                      <Label htmlFor="edit-parent-project" className="text-xs font-medium">Parent Project</Label>
+                      <Select 
+                        value={editProject.parent_id?.toString() || ''} 
+                        onValueChange={(value) => setEditProject({ ...editProject, parent_id: parseInt(value) })}
+                      >
+                        <SelectTrigger className="h-9 text-sm">
+                          <SelectValue placeholder="Select a parent project" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {projects.filter(p => !p.parent_id && p.id !== editingProject?.id).map(project => (
+                            <SelectItem key={project.id} value={project.id.toString()}>
+                              {project.title}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
+                  
+                  {!editProject.isSubProject && (
+                    <div className="flex items-center gap-2 bg-muted/30 p-2 rounded">
                   <input
                     id="edit-featured"
                     type="checkbox"
                     checked={editProject.featured}
                     onChange={(e) => setEditProject({ ...editProject, featured: e.target.checked })}
-                    className="w-4 h-4 text-primary bg-background border-border rounded focus:ring-primary focus:ring-offset-0"
+                        className="w-3.5 h-3.5 text-primary bg-background border-border rounded focus:ring-primary focus:ring-offset-0"
                   />
-                  <Label htmlFor="edit-featured" className="text-sm font-medium">
-                    ⭐ Featured Project
+                      <Label htmlFor="edit-featured" className="text-xs font-medium cursor-pointer">
+                        ⭐ Featured on homepage
                   </Label>
-                  <div className="text-xs text-muted-foreground ml-2">
-                    (Will appear on homepage)
                   </div>
+                  )}
                 </div>
-                <div className="flex space-x-2">
-                  <Button onClick={handleEditProject} className="flex-1">
+                
+                <div className="flex gap-2 pt-2">
+                  <Button type="button" onClick={handleEditProject} className="flex-1 h-9 text-sm">
                     Save Changes
                   </Button>
-                  <Button variant="outline" onClick={() => setShowEditDialog(false)} className="flex-1">
+                  <Button type="button" variant="outline" onClick={() => setShowEditDialog(false)} className="flex-1 h-9 text-sm">
                     Cancel
                   </Button>
                 </div>
@@ -771,31 +1000,29 @@ const AdminProjectsPage = React.memo(function AdminProjectsPage() {
                             <ImageUpload 
                               onUploadComplete={async (imageData) => {
                                 try {
-                                  const result = await SupabaseContentService.createImage({
-                                    name: imageData.name,
-                                    url: imageData.url,
-                                    category: imageData.category,
-                                    project_id: editingProject.id,
-                                    file_size: imageData.file_size || 0,
-                                    mime_type: imageData.mime_type || 'image/jpeg',
-                                    alt_text: imageData.alt_text || imageData.name,
-                                    is_cover_image: false,
-                                    price: imageData.price || 0
+                                  // Update the image with the project_id since it was already created
+                                  const result = await SupabaseContentService.updateImage(imageData.id, {
+                                    project_id: editingProject.id
                                   })
                                   
                                   if (result) {
+                                    // Update images state without full refresh
+                                    setImages(prev => prev.map(img => 
+                                      img.id === imageData.id 
+                                        ? { ...img, project_id: editingProject.id }
+                                        : img
+                                    ))
                                     SupabaseContentService.clearProjectCache()
-                                    await loadData()
                                     await refreshContent()
                                     setUploadSuccess(`Image "${imageData.name}" uploaded successfully!`)
                                   } else {
-                                    setUploadError('Failed to upload image. Please try again.')
+                                    setUploadError('Failed to link image to project. Please try again.')
                                   }
                                 } catch (error) {
-                                  // Error creating image: error
-                                  setUploadError('Error uploading image: ' + error)
+                                  setUploadError('Error linking image to project: ' + (error instanceof Error ? error.message : 'Unknown error'))
                                 }
                               }}
+                              projectId={editingProject.id}
                               defaultCategory={editingProject.category}
                             />
                           </div>
@@ -876,6 +1103,7 @@ const AdminProjectsPage = React.memo(function AdminProjectsPage() {
                                   <div className="flex flex-wrap gap-2">
                                     {!image.is_cover_image ? (
                                       <Button
+                                        type="button"
                                         variant="outline"
                                         size="sm"
                                         onClick={() => handleSetCoverImage(image.id, editingProject.id)}
@@ -886,6 +1114,7 @@ const AdminProjectsPage = React.memo(function AdminProjectsPage() {
                                       </Button>
                                     ) : (
                                       <Button
+                                        type="button"
                                         variant="outline"
                                         size="sm"
                                         onClick={() => handleRemoveCoverImage(editingProject.id)}
@@ -897,6 +1126,7 @@ const AdminProjectsPage = React.memo(function AdminProjectsPage() {
                                     )}
                                     
                                     <Button
+                                      type="button"
                                       variant="outline"
                                       size="sm"
                                       onClick={() => openImageDialog(image)}
@@ -907,6 +1137,7 @@ const AdminProjectsPage = React.memo(function AdminProjectsPage() {
                                     </Button>
                                     
                                     <Button
+                                      type="button"
                                       variant="outline"
                                       size="sm"
                                       onClick={() => handleDeleteImage(image.id)}
@@ -966,10 +1197,10 @@ const AdminProjectsPage = React.memo(function AdminProjectsPage() {
                 />
               </div>
               <div className="flex space-x-2">
-                <Button onClick={handleEditImage} className="flex-1">
+                <Button type="button" onClick={handleEditImage} className="flex-1">
                   Save Changes
                 </Button>
-                <Button variant="outline" onClick={() => setShowImageDialog(false)} className="flex-1">
+                <Button type="button" variant="outline" onClick={() => setShowImageDialog(false)} className="flex-1">
                   Cancel
                 </Button>
               </div>

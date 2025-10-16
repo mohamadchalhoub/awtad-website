@@ -53,9 +53,11 @@ export class SupabaseContentService {
   static clearProjectCache() {
     this.cache.delete('all_projects')
     this.cache.delete('all_images')
+    this.cache.delete('parent_projects_with_subprojects')
+    this.cache.delete('parent_projects')
     // Clear featured projects cache as well
     for (const [key] of this.cache.entries()) {
-      if (key.startsWith('featured_projects_')) {
+      if (key.startsWith('featured_projects_') || key.startsWith('subprojects_')) {
         this.cache.delete(key)
       }
     }
@@ -184,7 +186,7 @@ export class SupabaseContentService {
     return true
   }
 
-  // Get featured projects for homepage
+  // Get featured projects for homepage (only parent projects)
   static async getFeaturedProjects(limit: number = 6): Promise<Tables<'projects'>[]> {
     const cacheKey = `featured_projects_${limit}`
     const cachedData = this.getCachedData(cacheKey)
@@ -198,6 +200,7 @@ export class SupabaseContentService {
         .select('*')
         .eq('is_active', true)
         .eq('featured', true)
+        .is('parent_id', null) // Only parent projects can be featured
         .order('created_at', { ascending: false })
         .limit(limit)
 
@@ -211,6 +214,284 @@ export class SupabaseContentService {
       return result
     } catch (error) {
       console.error('Error in getFeaturedProjects:', error)
+      return []
+    }
+  }
+
+  // Get parent projects (projects without a parent_id)
+  static async getParentProjects(): Promise<Tables<'projects'>[]> {
+    const cacheKey = 'parent_projects'
+    const cachedData = this.getCachedData(cacheKey)
+    if (cachedData) {
+      return cachedData
+    }
+
+    try {
+      const { data, error } = await supabase
+        .from('projects')
+        .select('*')
+        .eq('is_active', true)
+        .is('parent_id', null)
+        .order('created_at', { ascending: false })
+
+      if (error) {
+        console.error('Error fetching parent projects:', error)
+        return []
+      }
+
+      const result = data || []
+      this.setCachedData(cacheKey, result)
+      return result
+    } catch (error) {
+      console.error('Error in getParentProjects:', error)
+      return []
+    }
+  }
+
+  // Get subprojects for a parent project
+  static async getSubProjects(parentId: number): Promise<Tables<'projects'>[]> {
+    const cacheKey = `subprojects_${parentId}`
+    const cachedData = this.getCachedData(cacheKey)
+    if (cachedData) {
+      return cachedData
+    }
+
+    try {
+      const { data, error } = await supabase
+        .from('projects')
+        .select('*')
+        .eq('is_active', true)
+        .eq('parent_id', parentId)
+        .order('created_at', { ascending: false })
+
+      if (error) {
+        console.error('Error fetching subprojects:', error)
+        return []
+      }
+
+      const result = data || []
+      this.setCachedData(cacheKey, result)
+      return result
+    } catch (error) {
+      console.error('Error in getSubProjects:', error)
+      return []
+    }
+  }
+
+  // Get subprojects with pagination for modal
+  static async getSubProjectsPaginated(
+    parentId: number, 
+    limit: number = 20, 
+    offset: number = 0, 
+    search: string = '', 
+    sort: string = 'newest'
+  ): Promise<{ items: any[]; total: number; hasMore: boolean }> {
+    try {
+      // Build query without joins to avoid issues
+      let query = supabase
+        .from('projects')
+        .select('id, title, created_at, cover_image_id', { count: 'exact' })
+        .eq('is_active', true)
+        .eq('parent_id', parentId)
+
+      // Apply search filter
+      if (search) {
+        query = query.or(`title.ilike.%${search}%,description.ilike.%${search}%`)
+      }
+
+      // Apply sorting
+      switch (sort) {
+        case 'newest':
+          query = query.order('created_at', { ascending: false })
+          break
+        case 'oldest':
+          query = query.order('created_at', { ascending: true })
+          break
+        case 'title':
+          query = query.order('title', { ascending: true })
+          break
+        default:
+          query = query.order('created_at', { ascending: false })
+      }
+
+      // Apply pagination
+      query = query.range(offset, offset + limit - 1)
+
+      const { data, error, count } = await query
+
+      if (error) {
+        console.error('Error fetching paginated subprojects:', error)
+        console.error('Error details:', error.message, error.details)
+        return { items: [], total: 0, hasMore: false }
+      }
+
+      // Get cover images for subprojects that have them
+      const coverImageIds = data
+        ?.filter(project => project.cover_image_id)
+        .map(project => project.cover_image_id) || []
+
+      let coverImages: any[] = []
+      if (coverImageIds.length > 0) {
+        const { data: coverImagesData, error: coverImagesError } = await supabase
+          .from('images')
+          .select('id, url')
+          .in('id', coverImageIds)
+
+        if (coverImagesError) {
+          console.error('Error fetching cover images:', coverImagesError)
+        } else {
+          coverImages = coverImagesData || []
+        }
+      }
+
+      // Create map for quick lookup
+      const coverImageMap = new Map(coverImages.map(img => [img.id, img.url]))
+
+      // Transform data to include thumbnail_url
+      const items = data?.map(project => ({
+        id: project.id,
+        title: project.title,
+        slug: project.id.toString(), // Use id as slug since slug column doesn't exist
+        thumbnail_url: project.cover_image_id ? coverImageMap.get(project.cover_image_id) : undefined,
+        created_at: project.created_at
+      })) || []
+
+      return {
+        items,
+        total: count || 0,
+        hasMore: (offset + limit) < (count || 0)
+      }
+    } catch (error) {
+      console.error('Error in getSubProjectsPaginated:', error)
+      console.error('Error details:', error instanceof Error ? error.message : 'Unknown error')
+      return { items: [], total: 0, hasMore: false }
+    }
+  }
+
+  // Get parent projects with subprojects count and preview
+  static async getParentProjectsWithSubprojects(): Promise<Array<Tables<'projects'> & { 
+    subprojectsCount: number; 
+    subprojectsPreview: Array<{ id: number; title: string; slug: string; thumbnail_url?: string }> 
+  }>> {
+    const cacheKey = 'parent_projects_with_subprojects'
+    const cachedData = this.getCachedData(cacheKey)
+    if (cachedData) {
+      return cachedData
+    }
+
+    try {
+      // Get parent projects first (without joins to avoid issues)
+      const { data: parentProjects, error: parentError } = await supabase
+        .from('projects')
+        .select('*')
+        .eq('is_active', true)
+        .is('parent_id', null)
+        .order('created_at', { ascending: false })
+
+      if (parentError) {
+        console.error('Error fetching parent projects:', parentError)
+        console.error('Error details:', parentError.message, parentError.details)
+        return []
+      }
+
+      if (!parentProjects || parentProjects.length === 0) {
+        console.log('No parent projects found')
+        return []
+      }
+
+      // Get cover images for parent projects
+      const parentIds = parentProjects.map(p => p.id)
+      const coverImageIds = parentProjects
+        .filter(p => p.cover_image_id)
+        .map(p => p.cover_image_id)
+
+      let coverImages: any[] = []
+      if (coverImageIds.length > 0) {
+        const { data: coverImagesData, error: coverImagesError } = await supabase
+          .from('images')
+          .select('id, url')
+          .in('id', coverImageIds)
+
+        if (coverImagesError) {
+          console.error('Error fetching cover images:', coverImagesError)
+        } else {
+          coverImages = coverImagesData || []
+        }
+      }
+
+      // Get subprojects for each parent
+      const { data: subprojectsData, error: subprojectsError } = await supabase
+        .from('projects')
+        .select('id, title, parent_id, created_at, cover_image_id')
+        .eq('is_active', true)
+        .in('parent_id', parentIds)
+        .order('created_at', { ascending: false })
+
+      if (subprojectsError) {
+        console.error('Error fetching subprojects:', subprojectsError)
+        console.error('Error details:', subprojectsError.message, subprojectsError.details)
+        return parentProjects.map(project => ({
+          ...project,
+          cover_image_url: undefined,
+          subprojectsCount: 0,
+          subprojectsPreview: []
+        }))
+      }
+
+      // Get cover images for subprojects
+      const subprojectCoverImageIds = subprojectsData
+        ?.filter(sp => sp.cover_image_id)
+        .map(sp => sp.cover_image_id) || []
+
+      let subprojectCoverImages: any[] = []
+      if (subprojectCoverImageIds.length > 0) {
+        const { data: subCoverImagesData, error: subCoverImagesError } = await supabase
+          .from('images')
+          .select('id, url')
+          .in('id', subprojectCoverImageIds)
+
+        if (subCoverImagesError) {
+          console.error('Error fetching subproject cover images:', subCoverImagesError)
+        } else {
+          subprojectCoverImages = subCoverImagesData || []
+        }
+      }
+
+      // Create maps for quick lookup
+      const coverImageMap = new Map(coverImages.map(img => [img.id, img.url]))
+      const subCoverImageMap = new Map(subprojectCoverImages.map(img => [img.id, img.url]))
+
+      // Group subprojects by parent_id
+      const subprojectsByParent = new Map<number, any[]>()
+      subprojectsData?.forEach(subproject => {
+        const parentId = subproject.parent_id
+        if (!subprojectsByParent.has(parentId)) {
+          subprojectsByParent.set(parentId, [])
+        }
+        subprojectsByParent.get(parentId)!.push({
+          id: subproject.id,
+          title: subproject.title,
+          slug: subproject.id.toString(), // Use id as slug since slug column doesn't exist
+          thumbnail_url: subproject.cover_image_id ? subCoverImageMap.get(subproject.cover_image_id) : undefined
+        })
+      })
+
+      // Combine parent projects with their subprojects data
+      const result = parentProjects.map(project => {
+        const subprojects = subprojectsByParent.get(project.id) || []
+        return {
+          ...project,
+          cover_image_url: project.cover_image_id ? coverImageMap.get(project.cover_image_id) : undefined,
+          subprojectsCount: subprojects.length,
+          subprojectsPreview: subprojects.slice(0, 6) // First 6 for preview
+        }
+      })
+
+      this.setCachedData(cacheKey, result)
+      return result
+    } catch (error) {
+      console.error('Error in getParentProjectsWithSubprojects:', error)
+      console.error('Error details:', error instanceof Error ? error.message : 'Unknown error')
       return []
     }
   }
@@ -306,19 +587,57 @@ export class SupabaseContentService {
   }
 
   static async deleteImage(id: string): Promise<boolean> {
-    const { error } = await supabase
-      .from('images')
-      .delete()
-      .eq('id', id)
+    try {
+      // First, check if this image is being used as a cover image
+      const { data: projectsUsingImage, error: checkError } = await supabase
+        .from('projects')
+        .select('id, title')
+        .eq('cover_image_id', id)
 
-    if (error) {
-      console.error('Error deleting image:', error)
+      if (checkError) {
+        console.error('Error checking if image is used as cover:', checkError)
+        return false
+      }
+
+      // If the image is being used as a cover image, remove it from projects first
+      if (projectsUsingImage && projectsUsingImage.length > 0) {
+        console.log(`Image is being used as cover image for ${projectsUsingImage.length} project(s). Removing cover image references first.`)
+        
+        // Remove cover_image_id from all projects using this image
+        const { error: updateError } = await supabase
+          .from('projects')
+          .update({ cover_image_id: null })
+          .eq('cover_image_id', id)
+
+        if (updateError) {
+          console.error('Error removing cover image references:', updateError)
+          return false
+        }
+
+        console.log('Successfully removed cover image references from projects')
+      }
+
+      // Now delete the image
+      const { error } = await supabase
+        .from('images')
+        .delete()
+        .eq('id', id)
+
+      if (error) {
+        console.error('Error deleting image:', error)
+        console.error('Error details:', error.message, error.details)
+        console.error('Error code:', error.code)
+        return false
+      }
+
+      // Clear cache after deleting image
+      this.clearProjectCache()
+      return true
+    } catch (error) {
+      console.error('Unexpected error in deleteImage:', error)
+      console.error('Error details:', error instanceof Error ? error.message : 'Unknown error')
       return false
     }
-
-    // Clear cache after deleting image
-    this.clearProjectCache()
-    return true
   }
 
   static async setCoverImage(imageId: string, projectId: number): Promise<boolean> {

@@ -41,6 +41,7 @@ export default function ProjectDetailPage() {
   
   const [project, setProject] = useState<ProjectWithCover | null>(null)
   const [projectImages, setProjectImages] = useState<ProjectImage[]>([])
+  const [subProjects, setSubProjects] = useState<ProjectWithCover[]>([])
   const [loading, setLoading] = useState(true)
   const [selectedImageIndex, setSelectedImageIndex] = useState<number | null>(null)
   const [showShareDialog, setShowShareDialog] = useState(false)
@@ -79,6 +80,34 @@ export default function ProjectDetailPage() {
           } catch (error) {
             // Error loading project images
             setProjectImages([])
+          }
+
+          // Get sub-projects from Supabase
+          try {
+            const subProjectsData = await SupabaseContentService.getSubProjects(projectId)
+            
+            // Get cover images for sub-projects
+            const allImages = await SupabaseContentService.getAllImages()
+            const subProjectsWithCovers = subProjectsData.map(sp => {
+              const coverImage = sp.cover_image_id 
+                ? allImages.find(img => img.id === sp.cover_image_id) 
+                : null
+              
+              return {
+                id: sp.id,
+                title: sp.title,
+                category: sp.category,
+                description: sp.description,
+                year: sp.year,
+                coverImageId: sp.cover_image_id || undefined,
+                coverImageUrl: coverImage?.url || undefined
+              }
+            })
+            
+            setSubProjects(subProjectsWithCovers)
+          } catch (error) {
+            // Error loading sub-projects
+            setSubProjects([])
           }
         }
         setLoading(false)
@@ -464,6 +493,63 @@ Thank you! I look forward to hearing from you.`
                         <span>{formatFileSize(image.size)}</span>
                         <span>{new Date(image.uploadDate).toLocaleDateString()}</span>
                       </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* Sub-Projects Section - Directly below gallery */}
+      {subProjects.length > 0 && (
+        <section className="py-16 px-6">
+          <div className="max-w-7xl mx-auto">
+            <div className="text-center space-y-4 mb-12">
+              <h2 className="text-3xl md:text-4xl font-mono font-bold text-foreground">
+                Related <span className="text-primary">Sub-Projects</span>
+              </h2>
+              <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
+                Explore additional projects related to {project?.title}.
+              </p>
+            </div>
+
+            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
+              {subProjects.map((subProject) => (
+                <Card 
+                  key={subProject.id} 
+                  className="bg-card border-border hover:border-primary/50 transition-all hover:glow-gold group shadow-lg cursor-pointer"
+                  onClick={() => router.push(`/projects/${subProject.id}`)}
+                >
+                  <CardContent className="p-0">
+                    <div className="aspect-video bg-muted overflow-hidden rounded-t-lg">
+                      {subProject.coverImageUrl ? (
+                        <img
+                          src={subProject.coverImageUrl}
+                          alt={subProject.title}
+                          className="w-full h-full object-cover object-center min-w-full min-h-full group-hover:scale-105 transition-transform duration-300"
+                          style={{ objectPosition: 'center center' }}
+                        />
+                      ) : (
+                        <div className="w-full h-full steel-texture flex items-center justify-center">
+                          <span className="text-muted-foreground font-mono text-sm">Project {subProject.id}</span>
+                        </div>
+                      )}
+                    </div>
+                    <div className="p-6 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs text-primary bg-primary/10 px-2 py-1 rounded">
+                          {subProject.category}
+                        </span>
+                        <span className="text-xs text-muted-foreground font-mono">{subProject.year}</span>
+                      </div>
+                      <h3 className="text-lg font-mono font-semibold text-foreground group-hover:text-primary transition-colors">
+                        {subProject.title}
+                      </h3>
+                      <p className="text-sm text-muted-foreground leading-relaxed line-clamp-2">
+                        {subProject.description}
+                      </p>
                     </div>
                   </CardContent>
                 </Card>

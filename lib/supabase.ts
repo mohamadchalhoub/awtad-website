@@ -167,10 +167,12 @@ export interface Database {
           description: string
           year: string
           cover_image_id: string | null
+          parent_id: number | null
           created_at: string
           updated_at: string
           created_by: string | null
           is_active: boolean
+          featured: boolean
         }
         Insert: {
           id?: number
@@ -179,10 +181,12 @@ export interface Database {
           description: string
           year: string
           cover_image_id?: string | null
+          parent_id?: number | null
           created_at?: string
           updated_at?: string
           created_by?: string | null
           is_active?: boolean
+          featured?: boolean
         }
         Update: {
           id?: number
@@ -191,10 +195,12 @@ export interface Database {
           description?: string
           year?: string
           cover_image_id?: string | null
+          parent_id?: number | null
           created_at?: string
           updated_at?: string
           created_by?: string | null
           is_active?: boolean
+          featured?: boolean
         }
       }
       images: {

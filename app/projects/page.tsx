@@ -14,6 +14,8 @@ import { Share2, Download, Maximize2, Filter } from "lucide-react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { useToast } from "@/hooks/use-toast"
 import type { Tables } from "@/lib/supabase"
+import SubprojectThumbnail from "@/components/SubprojectThumbnail"
+import ProjectSubprojectsModal from "@/components/ProjectSubprojectsModal"
 
 interface ProjectWithCover {
   id: number
@@ -23,6 +25,9 @@ interface ProjectWithCover {
   year: string
   coverImageId?: string
   coverImageUrl?: string
+  parent_id?: number | null
+  subprojectsCount?: number
+  subprojectsPreview?: Array<{ id: number; title: string; slug: string; thumbnail_url?: string }>
 }
 
 export default function ProjectsPage() {
@@ -31,18 +36,23 @@ export default function ProjectsPage() {
   const router = useRouter()
   const [allProjects, setAllProjects] = useState<ProjectWithCover[]>([])
   const [projectsWithCover, setProjectsWithCover] = useState<ProjectWithCover[]>([])
+  const [parentProjects, setParentProjects] = useState<ProjectWithCover[]>([])
   const [categories, setCategories] = useState<Tables<'categories'>[]>([])
   const [selectedCategory, setSelectedCategory] = useState<string>('all')
   const [showShareDialog, setShowShareDialog] = useState(false)
   const [selectedProject, setSelectedProject] = useState<ProjectWithCover | null>(null)
+  const [showSubprojectsModal, setShowSubprojectsModal] = useState(false)
+  const [selectedParentProject, setSelectedParentProject] = useState<ProjectWithCover | null>(null)
 
   useEffect(() => {
-    if (content?.projects) {
-      // Projects already have coverImageUrl from the content hook
-      setAllProjects(content.projects)
-      setProjectsWithCover(content.projects)
-    }
-  }, [content])
+    loadProjects()
+  }, [])
+
+  // Get subprojects for a given parent (now handled by the data structure)
+  const getSubProjects = (parentId: number) => {
+    // This is now handled by the subprojectsPreview in the data structure
+    return []
+  }
 
   // Load categories
   useEffect(() => {
@@ -66,27 +76,75 @@ export default function ProjectsPage() {
     loadCategories()
   }, [])
 
-  // Filter projects based on selected category
+  // Filter projects based on selected category (only parent projects)
   useEffect(() => {
     if (selectedCategory === 'all') {
-      setProjectsWithCover(allProjects)
+      setProjectsWithCover(parentProjects)
     } else {
-      const filtered = allProjects.filter(project => project.category === selectedCategory)
+      const filtered = parentProjects.filter(project => project.category === selectedCategory)
       setProjectsWithCover(filtered)
     }
-  }, [selectedCategory, allProjects])
+  }, [selectedCategory, parentProjects])
 
-  // Refresh content when the page becomes visible (disabled to prevent unwanted refreshes)
-  // useEffect(() => {
-  //   const handleVisibilityChange = () => {
-  //     if (!document.hidden) {
-  //       refreshContent()
-  //     }
-  //   }
+  // Refresh content when the page becomes visible (to show admin changes)
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        console.log('Page became visible, refreshing projects data...')
+        // Clear cache and reload projects
+        SupabaseContentService.clearProjectCache()
+        loadProjects()
+      }
+    }
 
-  //   document.addEventListener('visibilityChange', handleVisibilityChange)
-  //   return () => document.removeEventListener('visibilitychange', handleVisibilityChange)
-  // }, [refreshContent])
+    const handleFocus = () => {
+      console.log('Window focused, refreshing projects data...')
+      // Clear cache and reload projects
+      SupabaseContentService.clearProjectCache()
+      loadProjects()
+    }
+
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+    window.addEventListener('focus', handleFocus)
+    
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
+      window.removeEventListener('focus', handleFocus)
+    }
+  }, [])
+
+  // Function to reload projects (extracted for reuse)
+  const loadProjects = async () => {
+    try {
+      // Clear cache to ensure fresh data
+      SupabaseContentService.clearProjectCache()
+      
+      // Use the new method that includes subprojects data
+      const parentProjectsWithSubprojects = await SupabaseContentService.getParentProjectsWithSubprojects()
+      
+      // Transform to our interface
+      const projectsWithCovers = parentProjectsWithSubprojects.map(project => ({
+        id: project.id,
+        title: project.title,
+        category: project.category,
+        description: project.description,
+        year: project.year,
+        coverImageId: project.cover_image_id || undefined,
+        coverImageUrl: project.cover_image_url || undefined,
+        parent_id: project.parent_id,
+        subprojectsCount: project.subprojectsCount,
+        subprojectsPreview: project.subprojectsPreview
+      }))
+      
+      console.log('Loaded projects with subprojects:', projectsWithCovers)
+      
+      setAllProjects(projectsWithCovers)
+      setParentProjects(projectsWithCovers)
+      setProjectsWithCover(projectsWithCovers)
+    } catch (error) {
+      console.error('Error loading projects:', error)
+    }
+  }
 
   const handleViewDetails = (projectId: number) => {
     router.push(`/projects/${projectId}`)
@@ -177,6 +235,16 @@ export default function ProjectsPage() {
       }
   }
 
+  const handleOpenSubprojectsModal = (project: ProjectWithCover) => {
+    setSelectedParentProject(project)
+    setShowSubprojectsModal(true)
+  }
+
+  const handleCloseSubprojectsModal = () => {
+    setShowSubprojectsModal(false)
+    setSelectedParentProject(null)
+  }
+
   if (isLoading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -193,7 +261,7 @@ export default function ProjectsPage() {
       <Navigation />
 
       <section className="pt-24 pb-12 px-6">
-        <div className="max-w-7xl mx-auto text-center space-y-6">
+          <div className="max-w-7xl mx-auto text-center space-y-6">
           <h1 className="text-4xl md:text-5xl font-mono font-bold text-foreground">
             Our <span className="text-primary text-shadow-gold">Projects</span>
           </h1>
@@ -201,6 +269,15 @@ export default function ProjectsPage() {
             Explore our portfolio of steel design and engineering projects, showcasing innovation, precision, and
             excellence in every structure we create.
           </p>
+          <div className="flex justify-center">
+            <Button
+              variant="outline"
+              onClick={loadProjects}
+              className="text-sm"
+            >
+              🔄 Refresh Projects
+            </Button>
+          </div>
         </div>
       </section>
 
@@ -255,7 +332,7 @@ export default function ProjectsPage() {
             </div>
           </div>
 
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
             {projectsWithCover.length === 0 ? (
               <div className="col-span-full text-center py-16">
                 <div className="text-6xl mb-4">🔍</div>
@@ -279,55 +356,140 @@ export default function ProjectsPage() {
                 )}
               </div>
             ) : (
-              projectsWithCover.map((project) => (
-              <Card
-                key={project.id}
-                className="bg-card border-border hover:border-primary/50 transition-all hover:glow-gold group cursor-pointer"
-                onClick={() => handleViewDetails(project.id)}
-              >
-                <CardContent className="p-0">
-                  <div className="aspect-video bg-muted overflow-hidden rounded-t-lg">
-                    {project.coverImageUrl ? (
-                      <img
-                        src={project.coverImageUrl}
-                        alt={project.title}
-                        className="w-full h-full object-cover object-center min-w-full min-h-full group-hover:scale-105 transition-transform duration-300"
-                        style={{ objectPosition: 'center center' }}
-                      />
-                    ) : (
-                      <div className="w-full h-full steel-texture flex items-center justify-center">
-                        <span className="text-muted-foreground font-mono text-sm">Project {project.id}</span>
+              projectsWithCover.map((project) => {
+                
+                return (
+                  <article 
+                    key={project.id} 
+                    className="bg-white dark:bg-card rounded-xl border border-gray-200 dark:border-border shadow-sm overflow-hidden hover:shadow-md transition-shadow"
+                  >
+                    {/* Main Project Image */}
+                    <div 
+                      className="aspect-[16/9] bg-muted overflow-hidden cursor-pointer group relative"
+                      onClick={() => handleViewDetails(project.id)}
+                    >
+                      {project.coverImageUrl ? (
+                        <img
+                          src={project.coverImageUrl}
+                          alt={project.title}
+                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                          loading="lazy"
+                        />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-800 dark:to-gray-900">
+                          <span className="text-4xl">🏗️</span>
+                        </div>
+                      )}
+                      {/* Category and Year Badge */}
+                      <div className="absolute top-2 left-2 flex items-center gap-2">
+                        <span className="text-xs bg-white/90 dark:bg-black/70 text-gray-700 dark:text-gray-200 px-2 py-1 rounded backdrop-blur-sm">
+                          {project.category}
+                        </span>
+                        <span className="text-xs bg-white/90 dark:bg-black/70 text-gray-600 dark:text-gray-300 px-2 py-1 rounded backdrop-blur-sm">
+                          {project.year}
+                        </span>
                       </div>
-                    )}
-                  </div>
-                  <div className="p-6 space-y-4">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs text-primary bg-primary/10 px-2 py-1 rounded">
-                        {project.category}
-                      </span>
-                      <span className="text-xs text-muted-foreground font-mono">{project.year}</span>
                     </div>
-                    <h3 className="text-lg font-mono font-semibold text-foreground group-hover:text-primary transition-colors">
-                      {project.title}
-                    </h3>
-                    <p className="text-sm text-muted-foreground leading-relaxed line-clamp-3">
-                      {project.description}
-                    </p>
-                    
-                    {/* Action Buttons */}
-                    <div className="space-y-3">
-                      <Button 
-                        size="sm" 
-                        className="w-full border-primary/30 text-primary hover:bg-primary hover:text-primary-foreground bg-transparent"
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          handleViewDetails(project.id)
-                        }}
+
+                    {/* Card Content */}
+                    <div className="p-4 space-y-3">
+                      {/* Title and Description */}
+                      <div 
+                        className="cursor-pointer"
+                        onClick={() => handleViewDetails(project.id)}
                       >
-                        View Details
-                      </Button>
-                      
-                      <div className="flex space-x-2">
+                        <h3 className="text-lg font-semibold text-gray-900 dark:text-foreground hover:text-primary transition-colors line-clamp-1">
+                          {project.title}
+                        </h3>
+                        <p className="text-sm text-gray-600 dark:text-muted-foreground mt-1 line-clamp-2">
+                          {project.description}
+                        </p>
+                      </div>
+
+                      {/* Subprojects Section (Inside Card) */}
+                      {project.subprojectsCount && project.subprojectsCount > 0 && (
+                        <div className="pt-2 border-t border-gray-100 dark:border-border/50">
+                          <h4 className="text-xs text-gray-500 dark:text-muted-foreground mb-2 flex items-center gap-1">
+                            <span>↳</span>
+                            <span>Subprojects ({project.subprojectsCount})</span>
+                          </h4>
+                          
+                          {/* Horizontal Scrollable Subprojects */}
+                          <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-transparent">
+                            {project.subprojectsPreview?.slice(0, 5).map((subProject) => (
+                              <SubprojectThumbnail
+                                key={subProject.id}
+                                subproject={subProject}
+                                parentSlug={project.id.toString()}
+                                size="sm"
+                                showTitle={true}
+                              />
+                            ))}
+                            
+                            {/* Overlay for 6th item if more than 5 */}
+                            {project.subprojectsCount > 5 && (
+                              <div
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  handleOpenSubprojectsModal(project)
+                                }}
+                                className="flex-shrink-0 w-20 cursor-pointer group/overlay relative"
+                                aria-label={`View all ${project.subprojectsCount} subprojects`}
+                              >
+                                <div className="w-20 h-14 rounded-md border border-gray-200 dark:border-border overflow-hidden bg-muted hover:border-gray-400 dark:hover:border-primary/50 transition-colors relative">
+                                  {project.subprojectsPreview?.[5]?.thumbnail_url ? (
+                                    <img
+                                      src={project.subprojectsPreview[5].thumbnail_url}
+                                      alt={project.subprojectsPreview[5].title}
+                                      className="w-full h-full object-cover"
+                                      loading="lazy"
+                                    />
+                                  ) : (
+                                    <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-700 dark:to-gray-800">
+                                      <span className="text-lg">📄</span>
+                                    </div>
+                                  )}
+                                  {/* Overlay */}
+                                  <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
+                                    <span className="text-white text-xs font-medium">
+                                      +{project.subprojectsCount - 5}
+                                    </span>
+                                  </div>
+                                </div>
+                                <p className="text-xs text-gray-700 dark:text-gray-300 text-center mt-1 truncate group-hover/overlay:text-primary transition-colors">
+                                  +{project.subprojectsCount - 5} more
+                                </p>
+                              </div>
+                            )}
+                          </div>
+
+                          {/* View All Link */}
+                          {project.subprojectsCount > 6 && (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                handleOpenSubprojectsModal(project)
+                              }}
+                              className="text-xs text-blue-600 dark:text-primary hover:underline mt-1"
+                            >
+                              View all {project.subprojectsCount} subprojects →
+                            </button>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Action Buttons */}
+                      <div className="flex gap-2 pt-2">
+                        <Button
+                          size="sm"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            handleViewDetails(project.id)
+                          }}
+                          className="flex-1 h-8 text-xs"
+                        >
+                          View Details
+                        </Button>
                         <Button
                           size="sm"
                           variant="outline"
@@ -335,29 +497,15 @@ export default function ProjectsPage() {
                             e.stopPropagation()
                             handleShare(project)
                           }}
-                          className="flex-1 border-primary/30 text-primary hover:bg-primary hover:text-primary-foreground bg-transparent text-xs"
+                          className="h-8 px-3 text-xs"
                         >
-                          <Share2 className="w-3 h-3 mr-1" />
-                          Share
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            handleDownloadAlbum(project)
-                          }}
-                          className="flex-1 border-green-300 text-green-600 hover:bg-green-50 bg-transparent text-xs"
-                        >
-                          <Download className="w-3 h-3 mr-1" />
-                          Download
+                          <Share2 className="w-3 h-3" />
                         </Button>
                       </div>
                     </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))
+                  </article>
+                )
+              })
             )}
           </div>
         </div>
@@ -393,6 +541,21 @@ export default function ProjectsPage() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Subprojects Modal */}
+      {selectedParentProject && (
+        <ProjectSubprojectsModal
+          isOpen={showSubprojectsModal}
+          onClose={handleCloseSubprojectsModal}
+          parentProject={{
+            id: selectedParentProject.id,
+            title: selectedParentProject.title,
+            slug: selectedParentProject.id.toString()
+          }}
+          initialSubprojects={selectedParentProject.subprojectsPreview || []}
+          totalCount={selectedParentProject.subprojectsCount || 0}
+        />
+      )}
     </div>
   )
 }
