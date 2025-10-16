@@ -3,7 +3,7 @@ import { supabase } from '@/lib/supabase'
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { parentId: string } }
+  { params }: { params: Promise<{ parentId: string }> }
 ) {
   try {
     const { searchParams } = new URL(request.url)
@@ -12,7 +12,8 @@ export async function GET(
     const search = searchParams.get('search') || ''
     const sort = searchParams.get('sort') || 'newest'
 
-    const parentId = parseInt(params.parentId)
+    const resolvedParams = await params
+    const parentId = parseInt(resolvedParams.parentId)
     if (isNaN(parentId)) {
       return NextResponse.json({ error: 'Invalid parent ID' }, { status: 400 })
     }

@@ -370,8 +370,9 @@ export class SupabaseContentService {
 
   // Get parent projects with subprojects count and preview
   static async getParentProjectsWithSubprojects(): Promise<Array<Tables<'projects'> & { 
+    cover_image_url?: string;
     subprojectsCount: number; 
-    subprojectsPreview: Array<{ id: number; title: string; slug: string; thumbnail_url?: string }> 
+    subprojectsPreview: Array<{ id: number; title: string; slug: string; thumbnail_url?: string; created_at: string }> 
   }>> {
     const cacheKey = 'parent_projects_with_subprojects'
     const cachedData = this.getCachedData(cacheKey)
@@ -472,7 +473,8 @@ export class SupabaseContentService {
           id: subproject.id,
           title: subproject.title,
           slug: subproject.id.toString(), // Use id as slug since slug column doesn't exist
-          thumbnail_url: subproject.cover_image_id ? subCoverImageMap.get(subproject.cover_image_id) : undefined
+          thumbnail_url: subproject.cover_image_id ? subCoverImageMap.get(subproject.cover_image_id) : undefined,
+          created_at: subproject.created_at
         })
       })
 

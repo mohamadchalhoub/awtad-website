@@ -12,7 +12,7 @@ interface Subproject {
   title: string
   slug: string
   thumbnail_url?: string
-  created_at: string
+  created_at?: string
 }
 
 interface ProjectSubprojectsModalProps {
