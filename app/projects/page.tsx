@@ -95,14 +95,14 @@ export default function ProjectsPage() {
   const loadProjects = async () => {
     try {
       setIsLoadingProjects(true)
-      console.log('🔄 Starting to load projects...')
+      console.log('🚀🚀🚀 PROJECTS PAGE: Starting to load projects...', new Date().toISOString())
       const startTime = performance.now()
       
       // Use the new method that includes subprojects data (with caching)
       const parentProjectsWithSubprojects = await SupabaseContentService.getParentProjectsWithSubprojects()
       
       const endTime = performance.now()
-      console.log(`✅ Projects loaded in ${(endTime - startTime).toFixed(2)}ms`)
+      console.log(`✅✅✅ PROJECTS PAGE: Projects loaded in ${(endTime - startTime).toFixed(2)}ms`)
       
       // Transform to our interface
       const projectsWithCovers = parentProjectsWithSubprojects.map(project => ({
