@@ -6,6 +6,7 @@ import { ProjectGallery } from "@/components/project-gallery"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Skeleton } from "@/components/ui/skeleton"
 import { useContent } from "@/hooks/use-content"
 import { SupabaseContentService } from "@/lib/supabase-content"
 import { useRouter } from "next/navigation"
@@ -43,6 +44,7 @@ export default function ProjectsPage() {
   const [selectedProject, setSelectedProject] = useState<ProjectWithCover | null>(null)
   const [showSubprojectsModal, setShowSubprojectsModal] = useState(false)
   const [selectedParentProject, setSelectedParentProject] = useState<ProjectWithCover | null>(null)
+  const [isLoadingProjects, setIsLoadingProjects] = useState(true)
 
   useEffect(() => {
     loadProjects()
@@ -92,8 +94,15 @@ export default function ProjectsPage() {
   // Function to reload projects (extracted for reuse)
   const loadProjects = async () => {
     try {
+      setIsLoadingProjects(true)
+      console.log('🔄 Starting to load projects...')
+      const startTime = performance.now()
+      
       // Use the new method that includes subprojects data (with caching)
       const parentProjectsWithSubprojects = await SupabaseContentService.getParentProjectsWithSubprojects()
+      
+      const endTime = performance.now()
+      console.log(`✅ Projects loaded in ${(endTime - startTime).toFixed(2)}ms`)
       
       // Transform to our interface
       const projectsWithCovers = parentProjectsWithSubprojects.map(project => ({
@@ -109,13 +118,15 @@ export default function ProjectsPage() {
         subprojectsPreview: project.subprojectsPreview
       }))
       
-      console.log('Loaded projects with subprojects:', projectsWithCovers)
+      console.log(`📊 Loaded ${projectsWithCovers.length} projects`)
       
       setAllProjects(projectsWithCovers)
       setParentProjects(projectsWithCovers)
       setProjectsWithCover(projectsWithCovers)
     } catch (error) {
-      console.error('Error loading projects:', error)
+      console.error('❌ Error loading projects:', error)
+    } finally {
+      setIsLoadingProjects(false)
     }
   }
 
@@ -300,7 +311,29 @@ export default function ProjectsPage() {
           </div>
 
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {projectsWithCover.length === 0 ? (
+            {isLoadingProjects ? (
+              // Show skeleton loaders while loading
+              Array.from({ length: 6 }).map((_, index) => (
+                <Card key={index} className="bg-white dark:bg-card rounded-xl border border-gray-200 dark:border-border shadow-sm overflow-hidden">
+                  <CardContent className="p-0">
+                    <Skeleton className="aspect-[16/9] w-full" />
+                    <div className="p-4 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <Skeleton className="h-5 w-20" />
+                        <Skeleton className="h-5 w-12" />
+                      </div>
+                      <Skeleton className="h-6 w-full" />
+                      <Skeleton className="h-4 w-full" />
+                      <Skeleton className="h-4 w-3/4" />
+                      <div className="flex gap-2 pt-2">
+                        <Skeleton className="h-8 flex-1" />
+                        <Skeleton className="h-8 w-10" />
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))
+            ) : projectsWithCover.length === 0 ? (
               <div className="col-span-full text-center py-16">
                 <div className="text-6xl mb-4">🔍</div>
                 <h3 className="text-xl font-mono font-semibold text-foreground mb-2">
@@ -324,8 +357,8 @@ export default function ProjectsPage() {
               </div>
             ) : (
               projectsWithCover.map((project) => {
-                
-                return (
+
+  return (
                   <article 
                     key={project.id} 
                     className="bg-white dark:bg-card rounded-xl border border-gray-200 dark:border-border shadow-sm overflow-hidden hover:shadow-md transition-shadow"

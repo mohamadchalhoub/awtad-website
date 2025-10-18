@@ -31,10 +31,12 @@ export default function HomePage() {
   const { content, isLoading, refreshContent } = useContent()
   const router = useRouter()
   const [projectsWithCover, setProjectsWithCover] = useState<ProjectWithCover[]>([])
+  const [isLoadingProjects, setIsLoadingProjects] = useState(true)
 
   useEffect(() => {
     const loadFeaturedProjects = async () => {
       try {
+        setIsLoadingProjects(true)
         const { SupabaseContentService } = await import('@/lib/supabase-content')
         
         // Load featured projects for homepage
@@ -73,6 +75,9 @@ export default function HomePage() {
         setProjectsWithCover(projectsWithCoverImages)
       } catch (error) {
         console.error('Error loading featured projects:', error)
+        setProjectsWithCover([])
+      } finally {
+        setIsLoadingProjects(false)
       }
     }
 
@@ -274,7 +279,26 @@ export default function HomePage() {
 
 
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {projectsWithCover.length > 0 ? projectsWithCover.slice(0, 6).map((project, index) => (
+            {isLoadingProjects ? (
+              // Show skeleton placeholders while projects are loading
+              Array.from({ length: 6 }).map((_, index) => (
+                <Card key={index} className="bg-card border-border shadow-lg">
+                  <CardContent className="p-0">
+                    <Skeleton className="aspect-video rounded-t-lg" />
+                    <div className="p-6 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <Skeleton className="h-5 w-20" />
+                        <Skeleton className="h-5 w-12" />
+                      </div>
+                      <Skeleton className="h-6 w-full" />
+                      <Skeleton className="h-4 w-full" />
+                      <Skeleton className="h-4 w-3/4" />
+                    </div>
+                  </CardContent>
+                </Card>
+              ))
+            ) : projectsWithCover.length > 0 ? (
+              projectsWithCover.slice(0, 6).map((project, index) => (
               <motion.div
                 key={project.id}
                 initial={{ opacity: 0, y: 30 }}
@@ -317,24 +341,23 @@ export default function HomePage() {
                   </CardContent>
                 </Card>
               </motion.div>
-            )) : (
-              // Show skeleton placeholders while projects are loading
-              Array.from({ length: 6 }).map((_, index) => (
-                <Card key={index} className="bg-card border-border shadow-lg">
-                  <CardContent className="p-0">
-                    <Skeleton className="aspect-video rounded-t-lg" />
-                    <div className="p-6 space-y-3">
-                      <div className="flex items-center justify-between">
-                        <Skeleton className="h-5 w-20" />
-                        <Skeleton className="h-5 w-12" />
-                      </div>
-                      <Skeleton className="h-6 w-full" />
-                      <Skeleton className="h-4 w-full" />
-                      <Skeleton className="h-4 w-3/4" />
-                    </div>
-                  </CardContent>
-                </Card>
-              ))
+            ))
+            ) : (
+              // No featured projects - show message
+              <div className="col-span-full text-center py-16">
+                <div className="text-6xl mb-4">📁</div>
+                <h3 className="text-xl font-mono font-semibold text-foreground mb-2">
+                  No Featured Projects
+                </h3>
+                <p className="text-muted-foreground mb-6">
+                  There are no featured projects at the moment. Check back soon!
+                </p>
+                <Link href="/projects">
+                  <Button variant="outline" className="text-primary border-primary/30 hover:bg-primary hover:text-primary-foreground">
+                    View All Projects
+                  </Button>
+                </Link>
+              </div>
             )}
           </div>
 
