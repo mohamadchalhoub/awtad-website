@@ -86,13 +86,7 @@ const AdminProjectsPage = React.memo(function AdminProjectsPage() {
   }, [uploadError])
 
   useEffect(() => {
-    const timeoutId = setTimeout(() => {
-      // Loading timeout reached, but continuing to load data...
-    }, 30000)
-
     loadData()
-    
-    return () => clearTimeout(timeoutId)
   }, [])
 
   const loadData = useCallback(async () => {

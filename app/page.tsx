@@ -4,6 +4,7 @@ import { Navigation } from "@/components/navigation"
 import { Footer } from "@/components/footer"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
+import { Skeleton } from "@/components/ui/skeleton"
 import { useContent } from "@/hooks/use-content"
 import { AnimatedBackground } from "@/components/animated-background"
 import { AnimatedSection, AnimatedCard } from "@/components/animated-section"
@@ -39,47 +40,44 @@ export default function HomePage() {
         // Load featured projects for homepage
         const featuredProjects = await SupabaseContentService.getFeaturedProjects(6)
         
-        // Get cover images for projects that have them
-        const projectsWithCoverImages = await Promise.all(
-          featuredProjects.map(async (project) => {
-            let coverImageUrl: string | undefined = undefined
-            
-            if (project.cover_image_id) {
-              try {
-                const { data: imageData } = await supabase
-                  .from('images')
-                  .select('url')
-                  .eq('id', project.cover_image_id)
-                  .single()
-                
-                coverImageUrl = imageData?.url
-              } catch (error) {
-                // Error fetching cover image for project
-              }
-            }
-            
-            return {
-              id: project.id,
-              title: project.title,
-              category: project.category,
-              description: project.description,
-              year: project.year,
-              coverImageId: project.cover_image_id || undefined,
-              coverImageUrl: coverImageUrl,
-              parent_id: project.parent_id
-            }
-          })
-        )
+        // OPTIMIZATION: Batch fetch all cover images in ONE query
+        const coverImageIds = featuredProjects
+          .filter(p => p.cover_image_id)
+          .map(p => p.cover_image_id)
+        
+        let coverImagesMap = new Map<number, string>()
+        if (coverImageIds.length > 0) {
+          const { data: imagesData } = await supabase
+            .from('images')
+            .select('id, url')
+            .in('id', coverImageIds)
+          
+          if (imagesData) {
+            coverImagesMap = new Map(imagesData.map(img => [img.id, img.url]))
+          }
+        }
+        
+        // Map projects with their cover images
+        const projectsWithCoverImages = featuredProjects.map(project => ({
+          id: project.id,
+          title: project.title,
+          category: project.category,
+          description: project.description,
+          year: project.year,
+          coverImageId: project.cover_image_id || undefined,
+          coverImageUrl: project.cover_image_id ? coverImagesMap.get(project.cover_image_id) : undefined,
+          parent_id: project.parent_id
+        }))
         
         setProjectsWithCover(projectsWithCoverImages)
       } catch (error) {
-        // Error loading featured projects
+        console.error('Error loading featured projects:', error)
       }
     }
 
     // Always load featured projects for homepage
     loadFeaturedProjects()
-  }, [content])
+  }, [])
 
   // Remove this useEffect - we only want featured projects on homepage
   // useEffect(() => {
@@ -105,25 +103,7 @@ export default function HomePage() {
     router.push(`/projects/${projectId}`)
   }
 
-  if (isLoading) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <motion.div 
-          className="text-center space-y-4"
-          initial={{ opacity: 0, scale: 0.8 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ duration: 0.5 }}
-        >
-          <motion.div 
-            className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full mx-auto"
-            animate={{ rotate: 360 }}
-            transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
-          />
-          <p className="text-muted-foreground">Loading...</p>
-        </motion.div>
-      </div>
-    )
-  }
+  // REMOVED: Blocking loading spinner - page now renders immediately with skeletons
 
   return (
     <div className="min-h-screen bg-background relative">
@@ -293,7 +273,7 @@ export default function HomePage() {
 
 
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {projectsWithCover.slice(0, 6).map((project, index) => (
+            {projectsWithCover.length > 0 ? projectsWithCover.slice(0, 6).map((project, index) => (
               <motion.div
                 key={project.id}
                 initial={{ opacity: 0, y: 30 }}
@@ -336,7 +316,25 @@ export default function HomePage() {
                   </CardContent>
                 </Card>
               </motion.div>
-            ))}
+            )) : (
+              // Show skeleton placeholders while projects are loading
+              Array.from({ length: 6 }).map((_, index) => (
+                <Card key={index} className="bg-card border-border shadow-lg">
+                  <CardContent className="p-0">
+                    <Skeleton className="aspect-video rounded-t-lg" />
+                    <div className="p-6 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <Skeleton className="h-5 w-20" />
+                        <Skeleton className="h-5 w-12" />
+                      </div>
+                      <Skeleton className="h-6 w-full" />
+                      <Skeleton className="h-4 w-full" />
+                      <Skeleton className="h-4 w-3/4" />
+                    </div>
+                  </CardContent>
+                </Card>
+              ))
+            )}
           </div>
 
           <AnimatedSection className="text-center mt-12" direction="up" delay={0.4}>

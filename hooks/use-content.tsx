@@ -52,47 +52,28 @@ const ContentContext = createContext<{
 
 export function ContentProvider({ children }: { children: ReactNode }) {
   const [content, setContent] = useState<SiteContent | null>(null)
-  const [isLoading, setIsLoading] = useState(true)
+  const [isLoading, setIsLoading] = useState(false) // Start as false, load on demand
+  const [hasLoaded, setHasLoaded] = useState(false)
 
   const loadContent = async () => {
+    // Don't reload if already loaded (unless explicitly refreshed)
+    if (hasLoaded && content) {
+      return
+    }
+    
     try {
       setIsLoading(true)
       
-      // Load projects from Supabase
-      const projects = await SupabaseContentService.getAllProjects()
-      
-      // Load all images to get cover image URLs
-      const allImages = await SupabaseContentService.getAllImages()
-      
-      // Load homepage content from Supabase
-      const homepageContent = await SupabaseContentService.getHomepageContent()
-      
-      // Load about content from Supabase
-      const aboutContent = await SupabaseContentService.getAboutContent()
+      // OPTIMIZATION: Load only homepage and about content, NOT all projects/images
+      // Projects pages will load their own data directly
+      const [homepageContent, aboutContent] = await Promise.all([
+        SupabaseContentService.getHomepageContent(),
+        SupabaseContentService.getAboutContent()
+      ])
 
-      // Transform data to match existing structure - ONLY use real database data
+      // Transform data to match existing structure - ONLY homepage and about content
       const transformedContent: SiteContent = {
-        projects: projects.map(project => {
-          // Find cover image for this project
-          let coverImageUrl = undefined
-          if (project.cover_image_id) {
-            const coverImage = allImages.find(img => img.id === project.cover_image_id)
-            if (coverImage) {
-              coverImageUrl = coverImage.url
-            }
-          }
-          
-          return {
-            id: project.id,
-            title: project.title,
-            category: project.category,
-            description: project.description,
-            year: project.year,
-            coverImageId: project.cover_image_id || undefined,
-            coverImageUrl,
-            parent_id: project.parent_id
-          }
-        }),
+        projects: [], // Projects load their own data
         homepage: {
           heroTitle: homepageContent.hero?.title || "",
           heroSubtitle: homepageContent.hero?.subtitle || "",
@@ -107,6 +88,7 @@ export function ContentProvider({ children }: { children: ReactNode }) {
       }
 
       setContent(transformedContent)
+      setHasLoaded(true)
     } catch (error) {
       // Fallback to empty content - no dummy data
       setContent({
@@ -129,9 +111,11 @@ export function ContentProvider({ children }: { children: ReactNode }) {
   }
 
   const refreshContent = async () => {
+    setHasLoaded(false) // Force reload
     await loadContent()
   }
 
+  // OPTIMIZATION: Load on mount, but only homepage/about content (not all projects/images)
   useEffect(() => {
     loadContent()
   }, [])

@@ -76,16 +76,7 @@ This message was sent from the AWTAD website contact form.`
     setShowContactForm(false)
   }
 
-  if (isLoading) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="text-center space-y-4">
-          <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin mx-auto"></div>
-          <p className="text-muted-foreground">Loading...</p>
-        </div>
-      </div>
-    )
-  }
+  // REMOVED: Blocking loading spinner - page now renders immediately
 
   return (
     <div className="min-h-screen bg-background">

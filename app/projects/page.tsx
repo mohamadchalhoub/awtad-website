@@ -86,40 +86,13 @@ export default function ProjectsPage() {
     }
   }, [selectedCategory, parentProjects])
 
-  // Refresh content when the page becomes visible (to show admin changes)
-  useEffect(() => {
-    const handleVisibilityChange = () => {
-      if (!document.hidden) {
-        console.log('Page became visible, refreshing projects data...')
-        // Clear cache and reload projects
-        SupabaseContentService.clearProjectCache()
-        loadProjects()
-      }
-    }
-
-    const handleFocus = () => {
-      console.log('Window focused, refreshing projects data...')
-      // Clear cache and reload projects
-      SupabaseContentService.clearProjectCache()
-      loadProjects()
-    }
-
-    document.addEventListener('visibilitychange', handleVisibilityChange)
-    window.addEventListener('focus', handleFocus)
-    
-    return () => {
-      document.removeEventListener('visibilitychange', handleVisibilityChange)
-      window.removeEventListener('focus', handleFocus)
-    }
-  }, [])
+  // REMOVED: Aggressive cache clearing on focus/visibility was causing slow reloads
+  // Cache will auto-expire after 10 minutes, or user can manually refresh
 
   // Function to reload projects (extracted for reuse)
   const loadProjects = async () => {
     try {
-      // Clear cache to ensure fresh data
-      SupabaseContentService.clearProjectCache()
-      
-      // Use the new method that includes subprojects data
+      // Use the new method that includes subprojects data (with caching)
       const parentProjectsWithSubprojects = await SupabaseContentService.getParentProjectsWithSubprojects()
       
       // Transform to our interface
@@ -245,16 +218,7 @@ export default function ProjectsPage() {
     setSelectedParentProject(null)
   }
 
-  if (isLoading) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="text-center space-y-4">
-          <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin mx-auto"></div>
-          <p className="text-muted-foreground">Loading...</p>
-        </div>
-      </div>
-    )
-  }
+  // REMOVED: Blocking loading spinner - page now renders immediately
 
   return (
     <div className="min-h-screen bg-background">
@@ -272,7 +236,10 @@ export default function ProjectsPage() {
           <div className="flex justify-center">
             <Button
               variant="outline"
-              onClick={loadProjects}
+              onClick={() => {
+                SupabaseContentService.clearProjectCache()
+                loadProjects()
+              }}
               className="text-sm"
             >
               🔄 Refresh Projects

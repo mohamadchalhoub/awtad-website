@@ -95,6 +95,16 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
       'X-Client-Info': 'awtad-website-production',
       'X-Client-Version': '1.0.0',
     },
+    // Add 5 second timeout for all queries to prevent hanging
+    fetch: (url: RequestInfo | URL, options?: RequestInit) => {
+      const controller = new AbortController()
+      const timeoutId = setTimeout(() => controller.abort(), 5000)
+      
+      return fetch(url, {
+        ...options,
+        signal: controller.signal,
+      }).finally(() => clearTimeout(timeoutId))
+    },
   },
   db: {
     schema: 'public',

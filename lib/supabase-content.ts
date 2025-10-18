@@ -369,6 +369,7 @@ export class SupabaseContentService {
   }
 
   // Get parent projects with subprojects count and preview
+  // OPTIMIZED: Fetch parent projects with subprojects using parallel queries
   static async getParentProjectsWithSubprojects(): Promise<Array<Tables<'projects'> & { 
     cover_image_url?: string;
     subprojectsCount: number; 
@@ -381,99 +382,89 @@ export class SupabaseContentService {
     }
 
     try {
-      // Get parent projects first (without joins to avoid issues)
-      const { data: parentProjects, error: parentError } = await supabase
-        .from('projects')
-        .select('*')
-        .eq('is_active', true)
-        .is('parent_id', null)
-        .order('created_at', { ascending: false })
+      const startTime = performance.now()
+      
+      // OPTIMIZATION: Fetch parent projects and subprojects in parallel
+      const [parentProjectsResult, subprojectsResult] = await Promise.all([
+        // Get parent projects (limit to 30 for speed)
+        supabase
+          .from('projects')
+          .select('*')
+          .eq('is_active', true)
+          .is('parent_id', null)
+          .order('created_at', { ascending: false })
+          .limit(30),
+        
+        // Get ALL subprojects in one query (limit to 100 for speed)
+        supabase
+          .from('projects')
+          .select('id, title, parent_id, created_at, cover_image_id')
+          .eq('is_active', true)
+          .not('parent_id', 'is', null)
+          .order('created_at', { ascending: false })
+          .limit(100)
+      ])
+
+      const { data: parentProjects, error: parentError } = parentProjectsResult
+      const { data: allSubprojects, error: subprojectsError } = subprojectsResult
 
       if (parentError) {
         console.error('Error fetching parent projects:', parentError)
-        console.error('Error details:', parentError.message, parentError.details)
         return []
       }
 
       if (!parentProjects || parentProjects.length === 0) {
-        console.log('No parent projects found')
         return []
       }
 
-      // Get cover images for parent projects
-      const parentIds = parentProjects.map(p => p.id)
-      const coverImageIds = parentProjects
+      // Get all image IDs we need (both parent and subproject cover images)
+      const parentCoverImageIds = parentProjects
         .filter(p => p.cover_image_id)
         .map(p => p.cover_image_id)
+      
+      const subprojectCoverImageIds = (allSubprojects || [])
+        .filter(sp => sp.cover_image_id)
+        .map(sp => sp.cover_image_id)
+      
+      // Combine and deduplicate image IDs
+      const allImageIds = [...new Set([...parentCoverImageIds, ...subprojectCoverImageIds])]
 
-      let coverImages: any[] = []
-      if (coverImageIds.length > 0) {
-        const { data: coverImagesData, error: coverImagesError } = await supabase
+      // OPTIMIZATION: Fetch all images in ONE query instead of two
+      let allImages: any[] = []
+      if (allImageIds.length > 0) {
+        // Limit to first 50 image IDs to prevent huge queries
+        const limitedImageIds = allImageIds.slice(0, 50)
+        const { data: imagesData, error: imagesError } = await supabase
           .from('images')
           .select('id, url')
-          .in('id', coverImageIds)
+          .in('id', limitedImageIds)
 
-        if (coverImagesError) {
-          console.error('Error fetching cover images:', coverImagesError)
-        } else {
-          coverImages = coverImagesData || []
+        if (!imagesError && imagesData) {
+          allImages = imagesData
         }
       }
 
-      // Get subprojects for each parent
-      const { data: subprojectsData, error: subprojectsError } = await supabase
-        .from('projects')
-        .select('id, title, parent_id, created_at, cover_image_id')
-        .eq('is_active', true)
-        .in('parent_id', parentIds)
-        .order('created_at', { ascending: false })
+      // Create image lookup map
+      const imageMap = new Map(allImages.map(img => [img.id, img.url]))
 
-      if (subprojectsError) {
-        console.error('Error fetching subprojects:', subprojectsError)
-        console.error('Error details:', subprojectsError.message, subprojectsError.details)
-        return parentProjects.map(project => ({
-          ...project,
-          cover_image_url: undefined,
-          subprojectsCount: 0,
-          subprojectsPreview: []
-        }))
-      }
-
-      // Get cover images for subprojects
-      const subprojectCoverImageIds = subprojectsData
-        ?.filter(sp => sp.cover_image_id)
-        .map(sp => sp.cover_image_id) || []
-
-      let subprojectCoverImages: any[] = []
-      if (subprojectCoverImageIds.length > 0) {
-        const { data: subCoverImagesData, error: subCoverImagesError } = await supabase
-          .from('images')
-          .select('id, url')
-          .in('id', subprojectCoverImageIds)
-
-        if (subCoverImagesError) {
-          console.error('Error fetching subproject cover images:', subCoverImagesError)
-        } else {
-          subprojectCoverImages = subCoverImagesData || []
-        }
-      }
-
-      // Create maps for quick lookup
-      const coverImageMap = new Map(coverImages.map(img => [img.id, img.url]))
-      const subCoverImageMap = new Map(subprojectCoverImages.map(img => [img.id, img.url]))
+      // Filter subprojects to only those belonging to our parent projects
+      const parentIds = new Set(parentProjects.map(p => p.id))
+      const relevantSubprojects = (allSubprojects || []).filter(sp => 
+        sp.parent_id && parentIds.has(sp.parent_id)
+      )
 
       // Group subprojects by parent_id
       const subprojectsByParent = new Map<number, any[]>()
-      subprojectsData?.forEach(subproject => {
-        const parentId = subproject.parent_id
+      relevantSubprojects.forEach(subproject => {
+        const parentId = subproject.parent_id!
         if (!subprojectsByParent.has(parentId)) {
           subprojectsByParent.set(parentId, [])
         }
         subprojectsByParent.get(parentId)!.push({
           id: subproject.id,
           title: subproject.title,
-          slug: subproject.id.toString(), // Use id as slug since slug column doesn't exist
-          thumbnail_url: subproject.cover_image_id ? subCoverImageMap.get(subproject.cover_image_id) : undefined,
+          slug: subproject.id.toString(),
+          thumbnail_url: subproject.cover_image_id ? imageMap.get(subproject.cover_image_id) : undefined,
           created_at: subproject.created_at
         })
       })
@@ -483,17 +474,19 @@ export class SupabaseContentService {
         const subprojects = subprojectsByParent.get(project.id) || []
         return {
           ...project,
-          cover_image_url: project.cover_image_id ? coverImageMap.get(project.cover_image_id) : undefined,
+          cover_image_url: project.cover_image_id ? imageMap.get(project.cover_image_id) : undefined,
           subprojectsCount: subprojects.length,
           subprojectsPreview: subprojects.slice(0, 6) // First 6 for preview
         }
       })
 
+      const endTime = performance.now()
+      console.log(`✅ Optimized query completed in ${(endTime - startTime).toFixed(2)}ms - ${result.length} projects`)
+
       this.setCachedData(cacheKey, result)
       return result
     } catch (error) {
       console.error('Error in getParentProjectsWithSubprojects:', error)
-      console.error('Error details:', error instanceof Error ? error.message : 'Unknown error')
       return []
     }
   }
