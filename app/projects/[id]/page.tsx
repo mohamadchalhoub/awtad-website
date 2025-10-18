@@ -4,6 +4,7 @@ import { Navigation } from "@/components/navigation"
 import { Footer } from "@/components/footer"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
+import { Skeleton } from "@/components/ui/skeleton"
 import { useContent } from "@/hooks/use-content"
 import { SupabaseContentService } from "@/lib/supabase-content"
 import { useRouter, useParams } from "next/navigation"
@@ -366,34 +367,7 @@ Thank you! I look forward to hearing from you.`
     return Number.parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i]
   }
 
-  if (isLoading || loading) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="text-center space-y-4">
-          <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin mx-auto"></div>
-          <p className="text-muted-foreground">Loading project...</p>
-        </div>
-      </div>
-    )
-  }
-
-  if (!project) {
-    return (
-      <div className="min-h-screen bg-background">
-        <Navigation />
-        <div className="pt-24 pb-12 px-6">
-          <div className="max-w-4xl mx-auto text-center space-y-6">
-            <div className="text-4xl text-muted-foreground mb-4">❌</div>
-            <h1 className="text-3xl font-mono font-bold text-foreground">Project Not Found</h1>
-            <p className="text-lg text-muted-foreground">The project you're looking for doesn't exist.</p>
-            <Button onClick={handleBackToProjects} className="gold-gradient text-primary-foreground hover:opacity-90">
-              Back to Projects
-            </Button>
-          </div>
-        </div>
-      </div>
-    )
-  }
+  // REMOVED: No loading spinner - render immediately with skeleton
 
   return (
     <div className="min-h-screen bg-background">
@@ -411,35 +385,56 @@ Thank you! I look forward to hearing from you.`
             Back to Projects
           </Button>
 
-          <div className="grid lg:grid-cols-2 gap-8 items-center">
-                         {/* Cover Image */}
-             <div className="aspect-video bg-muted rounded-lg overflow-hidden">
-               {project.coverImageUrl ? (
-                 <img
-                   src={project.coverImageUrl}
-                   alt={project.title}
-                   className="w-full h-full object-cover object-center min-w-full min-h-full"
-                   style={{ objectPosition: 'center center' }}
-                 />
-               ) : (
-                 <div className="w-full h-full steel-texture flex items-center justify-center">
-                   <span className="text-muted-foreground font-mono text-lg">No Cover Image</span>
-                 </div>
-               )}
-             </div>
-
-            {/* Project Info */}
-            <div className="space-y-6">
-              <div className="space-y-4">
-                <div className="flex items-center space-x-4">
-                  <span className="text-sm font-mono text-primary bg-primary/10 px-3 py-1 rounded-full">
-                    {project.category}
-                  </span>
-                  <div className="flex items-center space-x-2 text-muted-foreground">
-                    <Calendar className="w-4 h-4" />
-                    <span className="text-sm">{project.year}</span>
+          {loading || !project ? (
+            // Skeleton loading state
+            <div className="grid lg:grid-cols-2 gap-8 items-center">
+              <Skeleton className="aspect-video w-full rounded-lg" />
+              <div className="space-y-6">
+                <div className="space-y-4">
+                  <div className="flex items-center space-x-4">
+                    <Skeleton className="h-6 w-24" />
+                    <Skeleton className="h-6 w-20" />
                   </div>
+                  <Skeleton className="h-12 w-full" />
+                  <Skeleton className="h-4 w-full" />
+                  <Skeleton className="h-4 w-3/4" />
                 </div>
+                <div className="flex flex-wrap gap-3">
+                  <Skeleton className="h-10 w-32" />
+                  <Skeleton className="h-10 w-40" />
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="grid lg:grid-cols-2 gap-8 items-center">
+              {/* Cover Image */}
+              <div className="aspect-video bg-muted rounded-lg overflow-hidden">
+                {project.coverImageUrl ? (
+                  <img
+                    src={project.coverImageUrl}
+                    alt={project.title}
+                    className="w-full h-full object-cover object-center min-w-full min-h-full"
+                    style={{ objectPosition: 'center center' }}
+                  />
+                ) : (
+                  <div className="w-full h-full steel-texture flex items-center justify-center">
+                    <span className="text-muted-foreground font-mono text-lg">No Cover Image</span>
+                  </div>
+                )}
+              </div>
+
+              {/* Project Info */}
+              <div className="space-y-6">
+                <div className="space-y-4">
+                  <div className="flex items-center space-x-4">
+                    <span className="text-sm font-mono text-primary bg-primary/10 px-3 py-1 rounded-full">
+                      {project.category}
+                    </span>
+                    <div className="flex items-center space-x-2 text-muted-foreground">
+                      <Calendar className="w-4 h-4" />
+                      <span className="text-sm">{project.year}</span>
+                    </div>
+                  </div>
                 {/* Breadcrumb Navigation for Subprojects */}
                 {parentProject && (
                   <div className="flex items-center gap-2 text-sm text-muted-foreground mb-4">
@@ -488,11 +483,12 @@ Thank you! I look forward to hearing from you.`
               </div>
             </div>
           </div>
+          )}
         </div>
       </section>
 
       {/* Project Images Gallery */}
-      {projectImages.length > 0 && (
+      {project && projectImages.length > 0 && (
         <section className="py-16 px-6 bg-secondary/30">
           <div className="max-w-7xl mx-auto">
             <div className="text-center space-y-4 mb-12">
@@ -563,7 +559,7 @@ Thank you! I look forward to hearing from you.`
       )}
 
       {/* Sub-Projects Section - Directly below gallery */}
-      {subProjects.length > 0 && (
+      {project && subProjects.length > 0 && (
         <section className="py-16 px-6">
           <div className="max-w-7xl mx-auto">
             <div className="text-center space-y-4 mb-12">
@@ -620,58 +616,60 @@ Thank you! I look forward to hearing from you.`
       )}
 
       {/* Project Details */}
-      <section className="py-16 px-6">
-        <div className="max-w-4xl mx-auto">
-          <div className="text-center space-y-4 mb-12">
-            <h2 className="text-3xl md:text-4xl font-mono font-bold text-foreground">
-              Project <span className="text-primary">Details</span>
-            </h2>
-            <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-              Comprehensive information about this steel engineering project.
-            </p>
-          </div>
+      {project && (
+        <section className="py-16 px-6">
+          <div className="max-w-4xl mx-auto">
+            <div className="text-center space-y-4 mb-12">
+              <h2 className="text-3xl md:text-4xl font-mono font-bold text-foreground">
+                Project <span className="text-primary">Details</span>
+              </h2>
+              <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
+                Comprehensive information about this steel engineering project.
+              </p>
+            </div>
 
-          <div className="grid md:grid-cols-2 gap-8">
-            <Card className="bg-card border-border">
-              <CardContent className="p-6 space-y-4">
-                <h3 className="text-xl font-mono font-semibold text-foreground">Project Information</h3>
-                <div className="space-y-3">
-                  <div className="flex items-center space-x-3">
-                    <Tag className="w-5 h-5 text-primary" />
-                    <div>
-                      <p className="text-sm font-medium text-foreground">Category</p>
-                      <p className="text-sm text-muted-foreground">{project.category}</p>
+            <div className="grid md:grid-cols-2 gap-8">
+              <Card className="bg-card border-border">
+                <CardContent className="p-6 space-y-4">
+                  <h3 className="text-xl font-mono font-semibold text-foreground">Project Information</h3>
+                  <div className="space-y-3">
+                    <div className="flex items-center space-x-3">
+                      <Tag className="w-5 h-5 text-primary" />
+                      <div>
+                        <p className="text-sm font-medium text-foreground">Category</p>
+                        <p className="text-sm text-muted-foreground">{project.category}</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center space-x-3">
+                      <Calendar className="w-5 h-5 text-primary" />
+                      <div>
+                        <p className="text-sm font-medium text-foreground">Year</p>
+                        <p className="text-sm text-muted-foreground">{project.year}</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center space-x-3">
+                      <ImageIcon className="w-5 h-5 text-primary" />
+                      <div>
+                        <p className="text-sm font-medium text-foreground">Images</p>
+                        <p className="text-sm text-muted-foreground">{projectImages.length} photos</p>
+                      </div>
                     </div>
                   </div>
-                  <div className="flex items-center space-x-3">
-                    <Calendar className="w-5 h-5 text-primary" />
-                    <div>
-                      <p className="text-sm font-medium text-foreground">Year</p>
-                      <p className="text-sm text-muted-foreground">{project.year}</p>
-                    </div>
-                  </div>
-                  <div className="flex items-center space-x-3">
-                    <ImageIcon className="w-5 h-5 text-primary" />
-                    <div>
-                      <p className="text-sm font-medium text-foreground">Images</p>
-                      <p className="text-sm text-muted-foreground">{projectImages.length} photos</p>
-                    </div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+                </CardContent>
+              </Card>
 
-            <Card className="bg-card border-border">
-              <CardContent className="p-6 space-y-4">
-                <h3 className="text-xl font-mono font-semibold text-foreground">Description</h3>
-                <p className="text-muted-foreground leading-relaxed">
-                  {project.description}
-                </p>
-              </CardContent>
-            </Card>
+              <Card className="bg-card border-border">
+                <CardContent className="p-6 space-y-4">
+                  <h3 className="text-xl font-mono font-semibold text-foreground">Description</h3>
+                  <p className="text-muted-foreground leading-relaxed">
+                    {project.description}
+                  </p>
+                </CardContent>
+              </Card>
+            </div>
           </div>
-        </div>
-      </section>
+        </section>
+      )}
 
       {/* Back to Projects CTA */}
       <section className="py-16 px-6">
