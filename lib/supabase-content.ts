@@ -95,13 +95,12 @@ export class SupabaseContentService {
     }
 
     const startTime = performance.now()
-    console.log('🔄 Fetching ALL projects (no filters)...')
+    console.log('🔄 Fetching ALL projects (no filters, no sorting)...')
 
-    // OPTIMIZED: Fetch all projects, filter in JavaScript (faster without indexes)
+    // ULTRA-OPTIMIZED: Fetch all projects without sorting (sorting requires index)
     const { data, error } = await supabase
       .from('projects')
       .select('*')
-      .order('created_at', { ascending: false })
       .limit(200)
 
     const endTime = performance.now()
@@ -112,9 +111,16 @@ export class SupabaseContentService {
       return []
     }
 
-    // Filter active projects in JavaScript
-    const result = (data || []).filter(p => p.is_active)
-    console.log(`✅ Projects fetched in ${duration.toFixed(2)}ms - ${result.length} active projects`)
+    // Filter and sort in JavaScript (faster than database operations without indexes)
+    const result = (data || [])
+      .filter(p => p.is_active)
+      .sort((a, b) => {
+        const dateA = new Date(a.created_at || 0).getTime()
+        const dateB = new Date(b.created_at || 0).getTime()
+        return dateB - dateA // Descending order (newest first)
+      })
+    
+    console.log(`✅ Projects fetched in ${duration.toFixed(2)}ms - ${result.length} active projects (sorted in JS)`)
     
     // Cache the result
     this.setCachedData(cacheKey, result)
@@ -386,14 +392,13 @@ export class SupabaseContentService {
 
     try {
       const startTime = performance.now()
-      console.log('🔄 Fetching ALL projects in ONE simple query...')
+      console.log('🔄 Fetching ALL projects in ONE simple query (no sorting)...')
       
-      // ULTRA-OPTIMIZED: Fetch ALL projects in ONE query, filter in JavaScript
+      // ULTRA-OPTIMIZED: Fetch ALL projects in ONE query, no sorting (sort in JS)
       // This is faster than multiple filtered queries without indexes
       const { data: allProjects, error } = await supabase
         .from('projects')
         .select('*')
-        .order('created_at', { ascending: false })
         .limit(200) // Get all projects in one shot
       
       if (error) {
@@ -407,11 +412,26 @@ export class SupabaseContentService {
 
       console.log(`📊 Fetched ${allProjects.length} total projects`)
       
-      // Filter in JavaScript (faster than database filters without indexes)
-      const parentProjects = allProjects.filter(p => p.is_active && !p.parent_id).slice(0, 30)
-      const allSubprojects = allProjects.filter(p => p.is_active && p.parent_id).slice(0, 100)
+      // Filter and sort in JavaScript (faster than database operations without indexes)
+      const parentProjects = allProjects
+        .filter(p => p.is_active && !p.parent_id)
+        .sort((a, b) => {
+          const dateA = new Date(a.created_at || 0).getTime()
+          const dateB = new Date(b.created_at || 0).getTime()
+          return dateB - dateA
+        })
+        .slice(0, 30)
+      
+      const allSubprojects = allProjects
+        .filter(p => p.is_active && p.parent_id)
+        .sort((a, b) => {
+          const dateA = new Date(a.created_at || 0).getTime()
+          const dateB = new Date(b.created_at || 0).getTime()
+          return dateB - dateA
+        })
+        .slice(0, 100)
 
-      console.log(`📊 Filtered: ${parentProjects.length} parents, ${allSubprojects.length} subprojects`)
+      console.log(`📊 Filtered & sorted: ${parentProjects.length} parents, ${allSubprojects.length} subprojects`)
 
       // Get all image IDs we need (both parent and subproject cover images)
       const parentCoverImageIds = parentProjects
@@ -425,18 +445,25 @@ export class SupabaseContentService {
       // Combine and deduplicate image IDs
       const allImageIds = [...new Set([...parentCoverImageIds, ...subprojectCoverImageIds])]
 
-      // Fetch images in ONE simple query (no filters, just get all)
+      // ULTRA-OPTIMIZED: Fetch ALL images, filter in JavaScript (avoid .in() which is slow)
       let allImages: any[] = []
       if (allImageIds.length > 0) {
-        console.log(`🖼️  Fetching ${allImageIds.length} cover images...`)
-        const limitedImageIds = allImageIds.slice(0, 50)
+        console.log(`🖼️  Fetching ALL images (will filter in JS)...`)
+        const imageStartTime = performance.now()
+        
         const { data: imagesData, error: imagesError } = await supabase
           .from('images')
           .select('id, url')
-          .in('id', limitedImageIds)
+          .limit(100) // Get first 100 images
+        
+        const imageEndTime = performance.now()
+        console.log(`✅ Images fetched in ${(imageEndTime - imageStartTime).toFixed(2)}ms`)
 
         if (!imagesError && imagesData) {
-          allImages = imagesData
+          // Filter in JavaScript (faster than .in() without indexes)
+          const imageIdSet = new Set(allImageIds)
+          allImages = imagesData.filter(img => imageIdSet.has(img.id))
+          console.log(`📊 Filtered ${allImages.length} relevant images from ${imagesData.length} total`)
         }
       }
 
@@ -493,20 +520,36 @@ export class SupabaseContentService {
     const cacheKey = 'all_images'
     const cachedData = this.getCachedData(cacheKey)
     if (cachedData) {
+      console.log('✅ Images loaded from cache (instant)')
       return cachedData
     }
 
+    const startTime = performance.now()
+    console.log('🔄 Fetching ALL images (no sorting)...')
+
+    // OPTIMIZED: Fetch without .order() (sorting requires index), sort in JavaScript
     const { data, error } = await supabase
       .from('images')
       .select('*')
-      .order('created_at', { ascending: false })
+      .limit(500) // Reasonable limit
+
+    const endTime = performance.now()
+    console.log(`✅ Images fetched in ${(endTime - startTime).toFixed(2)}ms`)
 
     if (error) {
       console.error('Error fetching images:', error)
       return []
     }
 
-    const result = data || []
+    // Sort in JavaScript (faster than database sort without index)
+    const result = (data || []).sort((a, b) => {
+      const dateA = new Date(a.created_at || 0).getTime()
+      const dateB = new Date(b.created_at || 0).getTime()
+      return dateB - dateA // Descending order
+    })
+    
+    console.log(`📊 Sorted ${result.length} images in JavaScript`)
+    
     // Cache the result
     this.setCachedData(cacheKey, result)
     return result

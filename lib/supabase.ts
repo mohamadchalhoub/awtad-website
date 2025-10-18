@@ -95,14 +95,16 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
       'X-Client-Info': 'awtad-website-production',
       'X-Client-Version': '1.0.0',
     },
-    // Add 30 second timeout for all queries (increased for slow queries without indexes)
+    // Add 10 second timeout for all queries (optimized queries should be fast)
     fetch: (url: RequestInfo | URL, options?: RequestInit) => {
       const controller = new AbortController()
-      const timeoutId = setTimeout(() => controller.abort(), 30000)
+      const timeoutId = setTimeout(() => controller.abort(), 10000)
       
       return fetch(url, {
         ...options,
         signal: controller.signal,
+        // Add keep-alive for connection reuse
+        keepalive: true,
       }).finally(() => clearTimeout(timeoutId))
     },
   },
