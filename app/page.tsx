@@ -43,7 +43,8 @@ export default function HomePage() {
         // OPTIMIZATION: Batch fetch all cover images in ONE query
         const coverImageIds = featuredProjects
           .filter(p => p.cover_image_id)
-          .map(p => p.cover_image_id as number)
+          .map(p => Number(p.cover_image_id))
+          .filter(id => !isNaN(id))
         
         let coverImagesMap = new Map<number, string>()
         if (coverImageIds.length > 0) {
@@ -65,7 +66,7 @@ export default function HomePage() {
           description: project.description,
           year: project.year,
           coverImageId: project.cover_image_id || undefined,
-          coverImageUrl: project.cover_image_id ? coverImagesMap.get(project.cover_image_id as number) : undefined,
+          coverImageUrl: project.cover_image_id ? coverImagesMap.get(Number(project.cover_image_id)) : undefined,
           parent_id: project.parent_id
         }))
         
