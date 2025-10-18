@@ -4,7 +4,7 @@ import type { Tables, InsertDto, UpdateDto } from './supabase'
 export class SupabaseContentService {
   // Cache for storing fetched data
   private static cache = new Map<string, { data: any; timestamp: number }>()
-  private static CACHE_DURATION = 10 * 60 * 1000 // 10 minutes for better performance
+  private static CACHE_DURATION = 2 * 60 * 1000 // 2 minutes - faster refresh for production
   private static MAX_CACHE_SIZE = 100 // Limit cache size to prevent memory issues
 
   // Clear expired cache entries

@@ -53,80 +53,111 @@ export default function ProjectDetailPage() {
 
   useEffect(() => {
     const loadProjectData = async () => {
-      if (content?.projects && projectId) {
-        // Find the project
-        const foundProject = content.projects.find(p => p.id === projectId)
-        if (foundProject) {
-          // The project already has coverImageUrl from the content hook
+      if (projectId) {
+        try {
+          setLoading(true)
+          console.log('🔄 Loading project:', projectId)
+          const startTime = performance.now()
+          
+          // Load project directly from Supabase
+          const projectData = await SupabaseContentService.getProjectById(projectId)
+          
+          if (!projectData) {
+            console.log('❌ Project not found:', projectId)
+            setLoading(false)
+            return
+          }
+          
+          // Get cover image if exists
+          let coverImageUrl: string | undefined = undefined
+          if (projectData.cover_image_id) {
+            const allImages = await SupabaseContentService.getAllImages()
+            const coverImage = allImages.find(img => img.id === projectData.cover_image_id)
+            coverImageUrl = coverImage?.url
+          }
+          
+          const foundProject: ProjectWithCover = {
+            id: projectData.id,
+            title: projectData.title,
+            category: projectData.category,
+            description: projectData.description,
+            year: projectData.year,
+            coverImageId: projectData.cover_image_id || undefined,
+            coverImageUrl,
+            parent_id: projectData.parent_id
+          }
+          
           setProject(foundProject)
+          
+          const endTime = performance.now()
+          console.log(`✅ Project loaded in ${(endTime - startTime).toFixed(2)}ms`)
           
           // If this is a subproject, find and set the parent project
           if (foundProject.parent_id) {
-            const parent = content.projects.find(p => p.id === foundProject.parent_id)
-            if (parent) {
-              setParentProject(parent)
+            const parentData = await SupabaseContentService.getProjectById(foundProject.parent_id)
+            if (parentData) {
+              setParentProject({
+                id: parentData.id,
+                title: parentData.title,
+                category: parentData.category,
+                description: parentData.description,
+                year: parentData.year,
+                parent_id: parentData.parent_id
+              })
             }
           }
 
           // Get project images from Supabase
-          try {
-            const allImages = await SupabaseContentService.getAllImages()
-            const images = allImages.filter(img => 
-              img.project_id === projectId || 
-              img.category.toLowerCase() === foundProject.category.toLowerCase()
-            )
-            
-            // Transform to match the expected format
-            const transformedImages = images.map(img => ({
-              id: img.id,
-              name: img.name,
-              url: img.url,
-              category: img.category,
-              uploadDate: img.created_at || new Date().toISOString(),
-              size: img.file_size || 0,
-              price: img.price || 0
-            }))
-            
-            setProjectImages(transformedImages)
-          } catch (error) {
-            // Error loading project images
-            setProjectImages([])
-          }
+          const allImages = await SupabaseContentService.getAllImages()
+          const images = allImages.filter(img => 
+            img.project_id === projectId || 
+            img.category.toLowerCase() === foundProject.category.toLowerCase()
+          )
+          
+          // Transform to match the expected format
+          const transformedImages = images.map(img => ({
+            id: img.id,
+            name: img.name,
+            url: img.url,
+            category: img.category,
+            uploadDate: img.created_at || new Date().toISOString(),
+            size: img.file_size || 0,
+            price: img.price || 0
+          }))
+          
+          setProjectImages(transformedImages)
 
           // Get sub-projects from Supabase
-          try {
-            const subProjectsData = await SupabaseContentService.getSubProjects(projectId)
+          const subProjectsData = await SupabaseContentService.getSubProjects(projectId)
+          
+          // Get cover images for sub-projects
+          const subProjectsWithCovers = subProjectsData.map(sp => {
+            const coverImage = sp.cover_image_id 
+              ? allImages.find(img => img.id === sp.cover_image_id) 
+              : null
             
-            // Get cover images for sub-projects
-            const allImages = await SupabaseContentService.getAllImages()
-            const subProjectsWithCovers = subProjectsData.map(sp => {
-              const coverImage = sp.cover_image_id 
-                ? allImages.find(img => img.id === sp.cover_image_id) 
-                : null
-              
-              return {
-                id: sp.id,
-                title: sp.title,
-                category: sp.category,
-                description: sp.description,
-                year: sp.year,
-                coverImageId: sp.cover_image_id || undefined,
-                coverImageUrl: coverImage?.url || undefined
-              }
-            })
-            
-            setSubProjects(subProjectsWithCovers)
-          } catch (error) {
-            // Error loading sub-projects
-            setSubProjects([])
-          }
+            return {
+              id: sp.id,
+              title: sp.title,
+              category: sp.category,
+              description: sp.description,
+              year: sp.year,
+              coverImageId: sp.cover_image_id || undefined,
+              coverImageUrl: coverImage?.url || undefined
+            }
+          })
+          
+          setSubProjects(subProjectsWithCovers)
+        } catch (error) {
+          console.error('❌ Error loading project data:', error)
+        } finally {
+          setLoading(false)
         }
-        setLoading(false)
       }
     }
 
     loadProjectData()
-  }, [content, projectId])
+  }, [projectId])
 
   // Refresh content when the page becomes visible (disabled to prevent unwanted refreshes)
   // useEffect(() => {
