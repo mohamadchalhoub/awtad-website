@@ -388,9 +388,9 @@ export class SupabaseContentService {
 
     try {
       console.time('⏱️ getParentProjectsWithSubprojects - Total Time')
-      console.time('⏱️ getParentProjectsWithSubprojects - Query Time')
-      console.log('🔄 Fetching parent projects with joined images and subprojects...')
+      console.log('🔄 Fetching parent projects...')
       
+      const startParentQuery = performance.now()
       // OPTIMIZED: Fetch parent projects first, then batch fetch their cover images
       // Using parallel queries for better performance
       const { data: parentProjects, error: parentError } = await supabase
@@ -401,7 +401,14 @@ export class SupabaseContentService {
         .order('created_at', { ascending: false })
         .limit(30)
 
-      console.timeEnd('⏱️ getParentProjectsWithSubprojects - Query Time')
+      const parentQueryTime = performance.now() - startParentQuery
+      console.log(`⏱️ Parent projects query: ${parentQueryTime.toFixed(0)}ms`)
+      
+      if (parentQueryTime > 1000) {
+        console.error(`❌ SLOW QUERY: Parent projects took ${parentQueryTime.toFixed(0)}ms`)
+        console.error('🔧 FIX: Run scripts/CREATE-INDEXES-PROPERLY.sql in Supabase SQL Editor')
+        console.error('📖 See: URGENT-RUN-THIS-NOW.md for instructions')
+      }
 
       if (parentError) {
         console.error('❌ Error fetching parent projects:', parentError)
@@ -418,8 +425,8 @@ export class SupabaseContentService {
       console.log(`📊 Fetched ${parentProjects.length} parent projects`)
 
       // Now fetch subprojects for these parent projects in parallel
-      console.time('⏱️ getParentProjectsWithSubprojects - Subprojects Query')
       const parentIds = parentProjects.map(p => p.id)
+      const startSubprojectsQuery = performance.now()
       
       const { data: allSubprojects, error: subprojectsError } = await supabase
         .from('projects')
@@ -429,7 +436,13 @@ export class SupabaseContentService {
         .order('created_at', { ascending: false })
         .limit(100)
 
-      console.timeEnd('⏱️ getParentProjectsWithSubprojects - Subprojects Query')
+      const subprojectsQueryTime = performance.now() - startSubprojectsQuery
+      console.log(`⏱️ Subprojects query: ${subprojectsQueryTime.toFixed(0)}ms`)
+      
+      if (subprojectsQueryTime > 1000) {
+        console.error(`❌ SLOW QUERY: Subprojects took ${subprojectsQueryTime.toFixed(0)}ms`)
+        console.error('🔧 FIX: Database indexes are missing!')
+      }
 
       if (subprojectsError) {
         console.warn('⚠️ Error fetching subprojects:', subprojectsError)
@@ -452,13 +465,19 @@ export class SupabaseContentService {
       // Batch fetch all cover images in one query
       let coverImagesMap = new Map<string, string>()
       if (allImageIds.length > 0) {
-        console.time('⏱️ getParentProjectsWithSubprojects - Images Query')
+        const startImagesQuery = performance.now()
         const { data: coverImages, error: imagesError } = await supabase
           .from('images')
           .select('id, url')
           .in('id', allImageIds)
 
-        console.timeEnd('⏱️ getParentProjectsWithSubprojects - Images Query')
+        const imagesQueryTime = performance.now() - startImagesQuery
+        console.log(`⏱️ Images query: ${imagesQueryTime.toFixed(0)}ms`)
+        
+        if (imagesQueryTime > 1000) {
+          console.error(`❌ SLOW QUERY: Images took ${imagesQueryTime.toFixed(0)}ms`)
+          console.error('🔧 FIX: Database indexes are missing!')
+        }
 
         if (!imagesError && coverImages) {
           coverImagesMap = new Map(coverImages.map(img => [img.id, img.url]))
