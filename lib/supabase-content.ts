@@ -94,32 +94,40 @@ export class SupabaseContentService {
       return cachedData
     }
 
-    const startTime = performance.now()
-    console.log('🔄 Fetching active projects with Supabase filtering...')
+    console.time('⏱️ getAllProjects - Total Time')
+    console.time('⏱️ getAllProjects - Query Time')
+    console.log('🔄 Fetching active projects with joined images...')
 
-    // PROPERLY OPTIMIZED: Use Supabase filtering (requires indexes)
-    // This is the CORRECT way - let the database do the work
+    // OPTIMIZED: Use joined query to fetch projects with their images in one call
+    // This eliminates N+1 queries and reduces round trips to the database
     const { data, error } = await supabase
       .from('projects')
-      .select('*')
+      .select(`
+        *,
+        images (
+          id,
+          url,
+          name,
+          category,
+          is_cover_image,
+          created_at
+        )
+      `)
       .eq('is_active', true)
       .order('created_at', { ascending: false })
       .limit(200)
 
-    const endTime = performance.now()
-    const duration = endTime - startTime
+    console.timeEnd('⏱️ getAllProjects - Query Time')
 
     if (error) {
-      console.error(`❌ Error fetching projects (${duration.toFixed(2)}ms):`, error)
+      console.error(`❌ Error fetching projects:`, error)
+      console.timeEnd('⏱️ getAllProjects - Total Time')
       return []
     }
 
     const result = data || []
-    console.log(`✅ Projects fetched in ${duration.toFixed(2)}ms - ${result.length} projects`)
-    
-    if (duration > 1000) {
-      console.warn(`⚠️ Query took ${duration.toFixed(2)}ms - indexes may be missing!`)
-    }
+    console.log(`✅ Projects fetched: ${result.length} projects with embedded images`)
+    console.timeEnd('⏱️ getAllProjects - Total Time')
     
     // Cache the result
     this.setCachedData(cacheKey, result)
@@ -376,7 +384,7 @@ export class SupabaseContentService {
   }
 
   // Get parent projects with subprojects count and preview
-  // OPTIMIZED: Fetch parent projects with subprojects using parallel queries
+  // OPTIMIZED: Use joined query to fetch parent projects with their images and subprojects in one call
   static async getParentProjectsWithSubprojects(): Promise<Array<Tables<'projects'> & { 
     cover_image_url?: string;
     subprojectsCount: number; 
@@ -390,97 +398,74 @@ export class SupabaseContentService {
     }
 
     try {
-      const startTime = performance.now()
-      console.log('🔄 Fetching parent projects and subprojects with Supabase filtering...')
+      console.time('⏱️ getParentProjectsWithSubprojects - Total Time')
+      console.time('⏱️ getParentProjectsWithSubprojects - Query Time')
+      console.log('🔄 Fetching parent projects with joined images and subprojects...')
       
-      // PROPERLY OPTIMIZED: Use Supabase filtering in parallel (requires indexes)
-      // This is the CORRECT way - let the database do the filtering and sorting
-      const [parentProjectsResult, subprojectsResult] = await Promise.all([
-        // Parent projects query with proper filtering
-        supabase
-          .from('projects')
-          .select('*')
-          .eq('is_active', true)
-          .is('parent_id', null)
-          .order('created_at', { ascending: false })
-          .limit(30),
-        
-        // Subprojects query with proper filtering
-        supabase
-          .from('projects')
-          .select('id, title, parent_id, created_at, cover_image_id')
-          .eq('is_active', true)
-          .not('parent_id', 'is', null)
-          .order('created_at', { ascending: false })
-          .limit(100)
-      ])
+      // OPTIMIZED: Use joined query to fetch parent projects with their cover images
+      // This eliminates the need for separate image queries
+      const { data: parentProjects, error: parentError } = await supabase
+        .from('projects')
+        .select(`
+          *,
+          cover_image:images!projects_cover_image_id_fkey (
+            id,
+            url
+          )
+        `)
+        .eq('is_active', true)
+        .is('parent_id', null)
+        .order('created_at', { ascending: false })
+        .limit(30)
 
-      const queryEndTime = performance.now()
-      console.log(`✅ Queries completed in ${(queryEndTime - startTime).toFixed(2)}ms`)
-
-      const { data: parentProjects, error: parentError } = parentProjectsResult
-      const { data: allSubprojects, error: subprojectsError } = subprojectsResult
+      console.timeEnd('⏱️ getParentProjectsWithSubprojects - Query Time')
 
       if (parentError) {
-        console.error('Error fetching parent projects:', parentError)
+        console.error('❌ Error fetching parent projects:', parentError)
+        console.timeEnd('⏱️ getParentProjectsWithSubprojects - Total Time')
         return []
       }
 
       if (!parentProjects || parentProjects.length === 0) {
+        console.log('ℹ️ No parent projects found')
+        console.timeEnd('⏱️ getParentProjectsWithSubprojects - Total Time')
         return []
       }
 
-      console.log(`📊 Fetched: ${parentProjects.length} parents, ${allSubprojects?.length || 0} subprojects`)
+      console.log(`📊 Fetched ${parentProjects.length} parent projects with cover images`)
 
-      // Get all image IDs we need (both parent and subproject cover images)
-      const parentCoverImageIds = parentProjects
-        .filter(p => p.cover_image_id)
-        .map(p => p.cover_image_id)
+      // Now fetch subprojects for these parent projects with their cover images
+      console.time('⏱️ getParentProjectsWithSubprojects - Subprojects Query')
+      const parentIds = parentProjects.map(p => p.id)
       
-      const subprojectCoverImageIds = (allSubprojects || [])
-        .filter(sp => sp.cover_image_id)
-        .map(sp => sp.cover_image_id)
-      
-      // Combine and deduplicate image IDs
-      const allImageIds = [...new Set([...parentCoverImageIds, ...subprojectCoverImageIds])]
+      const { data: allSubprojects, error: subprojectsError } = await supabase
+        .from('projects')
+        .select(`
+          id,
+          title,
+          parent_id,
+          created_at,
+          cover_image:images!projects_cover_image_id_fkey (
+            id,
+            url
+          )
+        `)
+        .eq('is_active', true)
+        .in('parent_id', parentIds)
+        .order('created_at', { ascending: false })
+        .limit(100)
 
-      // PROPERLY OPTIMIZED: Use .in() query (requires index on id column)
-      let allImages: any[] = []
-      if (allImageIds.length > 0) {
-        console.log(`🖼️  Fetching ${allImageIds.length} cover images with .in() query...`)
-        const imageStartTime = performance.now()
-        
-        const { data: imagesData, error: imagesError } = await supabase
-          .from('images')
-          .select('id, url')
-          .in('id', allImageIds)
-        
-        const imageEndTime = performance.now()
-        const imageDuration = imageEndTime - imageStartTime
-        console.log(`✅ Images fetched in ${imageDuration.toFixed(2)}ms`)
+      console.timeEnd('⏱️ getParentProjectsWithSubprojects - Subprojects Query')
 
-        if (imageDuration > 1000) {
-          console.warn(`⚠️ Image query took ${imageDuration.toFixed(2)}ms - index on id may be missing!`)
-        }
-
-        if (!imagesError && imagesData) {
-          allImages = imagesData
-          console.log(`📊 Fetched ${allImages.length} cover images`)
-        }
+      if (subprojectsError) {
+        console.warn('⚠️ Error fetching subprojects:', subprojectsError)
       }
 
-      // Create image lookup map
-      const imageMap = new Map(allImages.map(img => [img.id, img.url]))
-
-      // Filter subprojects to only those belonging to our parent projects
-      const parentIds = new Set(parentProjects.map(p => p.id))
-      const relevantSubprojects = (allSubprojects || []).filter(sp => 
-        sp.parent_id && parentIds.has(sp.parent_id)
-      )
+      console.log(`📊 Fetched ${allSubprojects?.length || 0} subprojects with cover images`)
 
       // Group subprojects by parent_id
       const subprojectsByParent = new Map<number, any[]>()
-      relevantSubprojects.forEach(subproject => {
+      ;(allSubprojects || []).forEach(subproject => {
         const parentId = subproject.parent_id!
         if (!subprojectsByParent.has(parentId)) {
           subprojectsByParent.set(parentId, [])
@@ -489,7 +474,7 @@ export class SupabaseContentService {
           id: subproject.id,
           title: subproject.title,
           slug: subproject.id.toString(),
-          thumbnail_url: subproject.cover_image_id ? imageMap.get(subproject.cover_image_id) : undefined,
+          thumbnail_url: (subproject as any).cover_image?.url,
           created_at: subproject.created_at
         })
       })
@@ -499,29 +484,20 @@ export class SupabaseContentService {
         const subprojects = subprojectsByParent.get(project.id) || []
         return {
           ...project,
-          cover_image_url: project.cover_image_id ? imageMap.get(project.cover_image_id) : undefined,
+          cover_image_url: (project as any).cover_image?.url,
           subprojectsCount: subprojects.length,
           subprojectsPreview: subprojects.slice(0, 6) // First 6 for preview
         }
       })
 
-      const endTime = performance.now()
-      const totalDuration = endTime - startTime
-      console.log(`✅ Total query completed in ${totalDuration.toFixed(2)}ms - ${result.length} projects`)
-
-      if (totalDuration > 2000) {
-        console.error(`❌ SLOW QUERY: ${totalDuration.toFixed(2)}ms - DATABASE INDEXES ARE MISSING!`)
-        console.error('Run scripts/CREATE-INDEXES-PROPERLY.sql in Supabase SQL Editor')
-      } else if (totalDuration > 1000) {
-        console.warn(`⚠️ Query took ${totalDuration.toFixed(2)}ms - consider adding indexes`)
-      } else {
-        console.log(`🚀 Performance: EXCELLENT (< 1 second)`)
-      }
+      console.log(`✅ Processed ${result.length} parent projects with subprojects`)
+      console.timeEnd('⏱️ getParentProjectsWithSubprojects - Total Time')
 
       this.setCachedData(cacheKey, result)
       return result
     } catch (error) {
-      console.error('Error in getParentProjectsWithSubprojects:', error)
+      console.error('❌ Error in getParentProjectsWithSubprojects:', error)
+      console.timeEnd('⏱️ getParentProjectsWithSubprojects - Total Time')
       return []
     }
   }
@@ -536,30 +512,28 @@ export class SupabaseContentService {
       return cachedData
     }
 
-    const startTime = performance.now()
+    console.time('⏱️ getAllImages - Total Time')
+    console.time('⏱️ getAllImages - Query Time')
     console.log('🔄 Fetching images with Supabase sorting...')
 
-    // PROPERLY OPTIMIZED: Use Supabase sorting (requires index on created_at)
+    // OPTIMIZED: Use Supabase sorting with indexes
     const { data, error } = await supabase
       .from('images')
       .select('*')
       .order('created_at', { ascending: false })
       .limit(500)
 
-    const endTime = performance.now()
-    const duration = endTime - startTime
-    console.log(`✅ Images fetched in ${duration.toFixed(2)}ms`)
+    console.timeEnd('⏱️ getAllImages - Query Time')
 
     if (error) {
-      console.error('Error fetching images:', error)
+      console.error('❌ Error fetching images:', error)
+      console.timeEnd('⏱️ getAllImages - Total Time')
       return []
     }
 
-    if (duration > 1000) {
-      console.warn(`⚠️ Images query took ${duration.toFixed(2)}ms - index on created_at may be missing!`)
-    }
-
     const result = data || []
+    console.log(`✅ Images fetched: ${result.length} images`)
+    console.timeEnd('⏱️ getAllImages - Total Time')
     
     // Cache the result
     this.setCachedData(cacheKey, result)
