@@ -489,16 +489,18 @@ export class SupabaseContentService {
     return this.getParentProjectsWithSubprojectsFallback()
   }
 
-  // Images (8 images total - should be instant)
+  // Images (8 images total - but URLs are 18MB of base64 data!)
+  // CRITICAL: Do NOT fetch 'url' field - it contains base64-encoded images (1-8 MB each!)
   static async getAllImages(): Promise<Tables<'images'>[]> {
     const cacheKey = 'all_images'
     const cachedData = this.getCachedData(cacheKey)
     if (cachedData) return cachedData
 
     const startTime = performance.now()
+    // IMPORTANT: Only fetch metadata, NOT the url field (contains 18MB of base64 data!)
     const { data, error } = await supabase
       .from('images')
-      .select('*')
+      .select('id, name, category, project_id, created_at, is_cover_image, alt_text, file_size, mime_type, price, created_by, upload_date')
       .order('created_at', { ascending: false })
 
     if (error) {
@@ -508,22 +510,29 @@ export class SupabaseContentService {
 
     const result = data || []
     const queryTime = performance.now() - startTime
-    console.log(`📊 getAllImages: ${result.length} images in ${queryTime.toFixed(0)}ms`)
+    console.log(`📊 getAllImages (metadata only): ${result.length} images in ${queryTime.toFixed(0)}ms`)
     
     if (queryTime > 500) {
-      console.warn(`⚠️ SLOW: getAllImages took ${queryTime.toFixed(0)}ms (expected <500ms for 8 images)`)
+      console.warn(`⚠️ SLOW: getAllImages took ${queryTime.toFixed(0)}ms (expected <500ms)`)
     }
     
     this.setCachedData(cacheKey, result)
-    return result
+    return result as any // Type assertion since we're not fetching url
   }
 
   static async getImagesByProject(projectId: number): Promise<Tables<'images'>[]> {
+    // Fetch WITH url field since we need to display them (but warn about performance)
+    console.log(`⚠️ Fetching images for project ${projectId} - may be slow due to 18MB base64 data`)
+    const startTime = performance.now()
+    
     const { data, error } = await supabase
       .from('images')
       .select('*')
       .eq('project_id', projectId)
       .order('created_at', { ascending: false })
+
+    const queryTime = performance.now() - startTime
+    console.log(`📊 Fetched ${data?.length || 0} images for project in ${queryTime.toFixed(0)}ms`)
 
     if (error) {
       console.error('Error fetching project images:', error)
@@ -534,11 +543,18 @@ export class SupabaseContentService {
   }
 
   static async getImagesByCategory(category: string): Promise<Tables<'images'>[]> {
+    // Fetch WITH url field since we need to display them
+    console.log(`⚠️ Fetching images for category ${category} - may be slow due to 18MB base64 data`)
+    const startTime = performance.now()
+    
     const { data, error } = await supabase
       .from('images')
       .select('*')
       .eq('category', category)
       .order('created_at', { ascending: false })
+
+    const queryTime = performance.now() - startTime
+    console.log(`📊 Fetched ${data?.length || 0} images for category in ${queryTime.toFixed(0)}ms`)
 
     if (error) {
       console.error('Error fetching category images:', error)
