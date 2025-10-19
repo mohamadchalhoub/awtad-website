@@ -391,6 +391,92 @@ export class SupabaseContentService {
     }
   }
 
+  // FALLBACK: Use separate queries if joined query fails (for backward compatibility)
+  private static async getParentProjectsWithSubprojectsFallback(): Promise<Array<Tables<'projects'> & { 
+    cover_image_url?: string;
+    subprojectsCount: number; 
+    subprojectsPreview: Array<{ id: number; title: string; slug: string; thumbnail_url?: string; created_at: string }> 
+  }>> {
+    try {
+      console.log('🔄 Using fallback method with separate queries...')
+      
+      // Fetch parent projects
+      const { data: parentProjects, error: parentError } = await supabase
+        .from('projects')
+        .select('id, title, category, description, year, cover_image_id, created_at, featured, parent_id, is_active, updated_at, created_by')
+        .eq('is_active', true)
+        .is('parent_id', null)
+        .order('created_at', { ascending: false })
+        .limit(30)
+
+      if (parentError || !parentProjects) {
+        console.error('❌ Fallback also failed:', parentError)
+        return []
+      }
+
+      // Fetch subprojects
+      const parentIds = parentProjects.map(p => p.id)
+      const { data: allSubprojects } = await supabase
+        .from('projects')
+        .select('id, title, parent_id, cover_image_id, created_at')
+        .eq('is_active', true)
+        .in('parent_id', parentIds)
+        .order('created_at', { ascending: false })
+        .limit(200)
+
+      // Collect image IDs
+      const parentCoverImageIds = parentProjects.filter(p => p.cover_image_id).map(p => p.cover_image_id!)
+      const subprojectCoverImageIds = (allSubprojects || []).filter(sp => sp.cover_image_id).map(sp => sp.cover_image_id!)
+      const allImageIds = [...new Set([...parentCoverImageIds, ...subprojectCoverImageIds])]
+
+      // Fetch images
+      let coverImagesMap = new Map<string, string>()
+      if (allImageIds.length > 0) {
+        const { data: coverImages } = await supabase
+          .from('images')
+          .select('id, url')
+          .in('id', allImageIds)
+        
+        if (coverImages) {
+          coverImagesMap = new Map(coverImages.map(img => [img.id, img.url]))
+        }
+      }
+
+      // Group subprojects by parent
+      const subprojectsByParent = new Map<number, any[]>()
+      ;(allSubprojects || []).forEach(subproject => {
+        const parentId = subproject.parent_id!
+        if (!subprojectsByParent.has(parentId)) {
+          subprojectsByParent.set(parentId, [])
+        }
+        subprojectsByParent.get(parentId)!.push({
+          id: subproject.id,
+          title: subproject.title,
+          slug: subproject.id.toString(),
+          thumbnail_url: subproject.cover_image_id ? coverImagesMap.get(subproject.cover_image_id) : undefined,
+          created_at: subproject.created_at
+        })
+      })
+
+      // Combine
+      const result = parentProjects.map(project => {
+        const subprojects = subprojectsByParent.get(project.id) || []
+        return {
+          ...project,
+          cover_image_url: project.cover_image_id ? coverImagesMap.get(project.cover_image_id) : undefined,
+          subprojectsCount: subprojects.length,
+          subprojectsPreview: subprojects.slice(0, 6)
+        }
+      })
+
+      console.log(`✅ Fallback completed: ${result.length} projects`)
+      return result
+    } catch (error) {
+      console.error('❌ Fallback method also failed:', error)
+      return []
+    }
+  }
+
   // Get parent projects with subprojects count and preview
   // OPTIMIZED: Use Supabase joined queries for maximum performance (1 query instead of 3!)
   static async getParentProjectsWithSubprojects(): Promise<Array<Tables<'projects'> & { 
@@ -451,8 +537,18 @@ export class SupabaseContentService {
 
       if (projectsError) {
         console.error('❌ Error fetching projects with joins:', projectsError)
+        console.error('❌ Error details:', {
+          message: projectsError.message,
+          details: projectsError.details,
+          hint: projectsError.hint,
+          code: projectsError.code
+        })
+        console.error('⚠️ Joined query might not work - check foreign key relationships')
+        console.error('💡 Falling back to separate queries...')
         console.timeEnd('⏱️ getParentProjectsWithSubprojects - Total Time')
-        return []
+        
+        // FALLBACK: Use separate queries if joined query fails
+        return this.getParentProjectsWithSubprojectsFallback()
       }
 
       if (!projectsData || projectsData.length === 0) {
