@@ -396,40 +396,21 @@ export class SupabaseContentService {
       const parentIds = parentProjects.map(p => p.id)
       const parentCoverImageIds = parentProjects.filter(p => p.cover_image_id).map(p => p.cover_image_id!)
 
-      const [subprojectsResult, coverImagesResult] = await Promise.allSettled([
+      const [subprojectsResult] = await Promise.allSettled([
         supabase
           .from('projects')
           .select('id, title, parent_id, cover_image_id, created_at')
           .eq('is_active', true)
           .in('parent_id', parentIds)
-          .order('created_at', { ascending: false }),
-        
-        parentCoverImageIds.length > 0
-          ? supabase.from('images').select('id, url').in('id', parentCoverImageIds)
-          : Promise.resolve({ data: [], error: null })
+          .order('created_at', { ascending: false })
       ])
 
       const allSubprojects = subprojectsResult.status === 'fulfilled' ? (subprojectsResult.value.data || []) : []
-      let coverImagesMap = new Map<string, string>()
       
-      if (coverImagesResult.status === 'fulfilled' && coverImagesResult.value.data) {
-        coverImagesMap = new Map(coverImagesResult.value.data.map(img => [img.id, img.url]))
-      }
-
-      // Step 3: Fetch subproject cover images if needed
-      const subprojectCoverImageIds = allSubprojects.filter(sp => sp.cover_image_id).map(sp => sp.cover_image_id!)
-      const newImageIds = subprojectCoverImageIds.filter(id => !coverImagesMap.has(id))
-      
-      if (newImageIds.length > 0) {
-        const { data: subImages } = await supabase
-          .from('images')
-          .select('id, url')
-          .in('id', newImageIds)
-        
-        if (subImages) {
-          subImages.forEach(img => coverImagesMap.set(img.id, img.url))
-        }
-      }
+      // SKIP fetching image URLs - they contain 18MB of base64 data!
+      // Images will need to be fetched individually on-demand when viewing project details
+      console.log(`⚠️ Skipping image URL fetch (18MB base64 data) - ${allSubprojects.length} subprojects fetched`)
+      const coverImagesMap = new Map<string, string>()
 
       // Step 4: Combine data (in-memory, instant)
       const subprojectsByParent = new Map<number, any[]>()
