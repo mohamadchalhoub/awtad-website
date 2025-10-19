@@ -562,9 +562,12 @@ export class SupabaseContentService {
       return cachedData
     }
 
+    console.log('🚀🚀🚀 START: getAllImages called')
     console.time('⏱️ getAllImages - Total Time')
-    console.time('⏱️ getAllImages - Query Time')
-    console.log('🔄 Fetching images with Supabase sorting...')
+    const startTotal = performance.now()
+    
+    console.log('🔄 Fetching all images from Supabase...')
+    const startQuery = performance.now()
 
     // OPTIMIZED: Use Supabase sorting with indexes
     const { data, error } = await supabase
@@ -573,7 +576,13 @@ export class SupabaseContentService {
       .order('created_at', { ascending: false })
       .limit(500)
 
-    console.timeEnd('⏱️ getAllImages - Query Time')
+    const queryTime = performance.now() - startQuery
+    console.log(`⏱️ getAllImages DB query: ${queryTime.toFixed(0)}ms`)
+    
+    if (queryTime > 1000) {
+      console.error(`❌ SLOW QUERY: getAllImages took ${queryTime.toFixed(0)}ms (>1s)`)
+      console.error('💡 TIP: Run scripts/add-performance-indexes.sql in Supabase')
+    }
 
     if (error) {
       console.error('❌ Error fetching images:', error)
@@ -582,8 +591,13 @@ export class SupabaseContentService {
     }
 
     const result = data || []
-    console.log(`✅ Images fetched: ${result.length} images`)
+    const totalTime = performance.now() - startTotal
+    console.log(`✅ Images fetched: ${result.length} images in ${totalTime.toFixed(0)}ms`)
     console.timeEnd('⏱️ getAllImages - Total Time')
+    
+    if (totalTime > 2000) {
+      console.error(`⚠️ PERFORMANCE WARNING: getAllImages total time ${totalTime.toFixed(0)}ms (>2s)`)
+    }
     
     // Cache the result
     this.setCachedData(cacheKey, result)

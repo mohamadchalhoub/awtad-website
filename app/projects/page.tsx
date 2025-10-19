@@ -95,14 +95,25 @@ export default function ProjectsPage() {
   const loadProjects = async () => {
     try {
       setIsLoadingProjects(true)
-      console.log('🚀🚀🚀 PROJECTS PAGE: Starting to load projects...', new Date().toISOString())
-      const startTime = performance.now()
+      console.log('🚀🚀🚀 PUBLIC PROJECTS PAGE: Starting data load...')
+      console.time('⏱️ PUBLIC PAGE - Total Load Time')
+      const startTotal = performance.now()
       
-      // Use the new method that includes subprojects data (with caching)
+      // DIAGNOSTIC: Temporarily clear cache to measure raw query times
+      console.log('🗑️ Clearing cache for performance diagnosis')
+      SupabaseContentService.clearProjectCache()
+      
+      console.log('📡 Fetching parent projects with subprojects...')
+      const startFetch = performance.now()
+      
+      // Use the optimized method that includes subprojects data
       const parentProjectsWithSubprojects = await SupabaseContentService.getParentProjectsWithSubprojects()
       
-      const endTime = performance.now()
-      console.log(`✅✅✅ PROJECTS PAGE: Projects loaded in ${(endTime - startTime).toFixed(2)}ms`)
+      const fetchTime = performance.now() - startFetch
+      console.log(`📊 Query completed in ${fetchTime.toFixed(0)}ms`)
+      
+      console.log('📝 Transforming data...')
+      const startTransform = performance.now()
       
       // Transform to our interface
       const projectsWithCovers = parentProjectsWithSubprojects.map(project => ({
@@ -118,13 +129,59 @@ export default function ProjectsPage() {
         subprojectsPreview: project.subprojectsPreview
       }))
       
-      console.log(`📊 Loaded ${projectsWithCovers.length} projects`)
+      const transformTime = performance.now() - startTransform
+      console.log(`🔄 Transform took ${transformTime.toFixed(0)}ms`)
+      
+      console.log('📝 Setting state...')
+      const startSetState = performance.now()
       
       setAllProjects(projectsWithCovers)
       setParentProjects(projectsWithCovers)
       setProjectsWithCover(projectsWithCovers)
+      
+      const setStateTime = performance.now() - startSetState
+      console.log(`⚙️ State update took ${setStateTime.toFixed(0)}ms`)
+      
+      const totalTime = performance.now() - startTotal
+      console.timeEnd('⏱️ PUBLIC PAGE - Total Load Time')
+      
+      // Count total subprojects
+      const totalSubprojects = projectsWithCovers.reduce((sum, p) => sum + (p.subprojectsCount || 0), 0)
+      
+      console.log(`
+╔════════════════════════════════════════════════╗
+║  PUBLIC PROJECTS PAGE LOAD BREAKDOWN           ║
+╠════════════════════════════════════════════════╣
+║  📊 Parent Projects: ${projectsWithCovers.length.toString().padEnd(4)} items              ║
+║  📁 Total Subprojects: ${totalSubprojects.toString().padEnd(4)} items            ║
+╠════════════════════════════════════════════════╣
+║  ⏱️  Fetch time: ${fetchTime.toFixed(0).padEnd(6)}ms                      ║
+║  🔄 Transform time: ${transformTime.toFixed(0).padEnd(6)}ms                  ║
+║  ⚙️  State update: ${setStateTime.toFixed(0).padEnd(6)}ms                    ║
+║  🎯 TOTAL TIME: ${totalTime.toFixed(0).padEnd(6)}ms                      ║
+╚════════════════════════════════════════════════╝
+      `)
+      
+      if (totalTime > 5000) {
+        console.error(`⚠️⚠️⚠️ PERFORMANCE ISSUE: Total load time ${totalTime.toFixed(0)}ms (>5s)`)
+        if (fetchTime > 4000) {
+          console.error('🔍 DATABASE QUERIES ARE SLOW (>4s)')
+          console.error('💡 SOLUTIONS:')
+          console.error('   1. Verify indexes in Supabase (run scripts/add-performance-indexes.sql)')
+          console.error('   2. Check Supabase region matches your location')
+          console.error('   3. Consider enabling connection pooling')
+          console.error('   4. Check network latency to Supabase servers')
+        } else if (setStateTime > 1000) {
+          console.error('🔍 FRONTEND RENDERING IS SLOW (>1s)')
+          console.error('💡 SOLUTIONS:')
+          console.error('   1. Implement pagination')
+          console.error('   2. Use virtualized lists')
+          console.error('   3. Optimize React component rendering')
+        }
+      }
+      
     } catch (error) {
-      console.error('❌ Error loading projects:', error)
+      console.error('❌❌❌ FATAL ERROR loading projects:', error)
     } finally {
       setIsLoadingProjects(false)
     }

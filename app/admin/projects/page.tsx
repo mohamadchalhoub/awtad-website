@@ -93,31 +93,84 @@ const AdminProjectsPage = React.memo(function AdminProjectsPage() {
     try {
       setLoading(true)
       setError(null)
-      // Loading data from Supabase...
       
-      // Don't clear cache on every load - only clear when needed
-      // SupabaseContentService.clearProjectCache()
+      console.log('🚀🚀🚀 ADMIN PAGE: Starting data load...')
+      console.time('⏱️ ADMIN PAGE - Total Load Time')
+      const startTotal = performance.now()
       
-      // Remove connection test - it adds unnecessary delay
-      // const connectionTest = await SupabaseContentService.testConnection()
-      // if (!connectionTest.success) {
-      //   throw new Error(`Database connection failed: ${connectionTest.error}`)
-      // }
+      // DIAGNOSTIC: Temporarily clear cache to measure raw query times
+      console.log('🗑️ Clearing cache for performance diagnosis')
+      SupabaseContentService.clearProjectCache()
       
-      // Fetch data in parallel for better performance
-      const [projectsData, imagesData, categoriesData] = await Promise.all([
+      console.log('📡 Fetching data in parallel with Promise.allSettled...')
+      const startFetch = performance.now()
+      
+      // Use Promise.allSettled for better error handling and parallel execution
+      const results = await Promise.allSettled([
         SupabaseContentService.getAllProjects(),
         SupabaseContentService.getAllImages(),
         SupabaseContentService.getAllCategories()
       ])
       
+      const fetchTime = performance.now() - startFetch
+      console.log(`📊 All queries completed in ${fetchTime.toFixed(0)}ms`)
+      
+      // Extract results and log individual timings
+      const projectsData = results[0].status === 'fulfilled' ? results[0].value : []
+      const imagesData = results[1].status === 'fulfilled' ? results[1].value : []
+      const categoriesData = results[2].status === 'fulfilled' ? results[2].value : []
+      
+      // Log any failures
+      if (results[0].status === 'rejected') console.error('❌ Projects query failed:', results[0].reason)
+      if (results[1].status === 'rejected') console.error('❌ Images query failed:', results[1].reason)
+      if (results[2].status === 'rejected') console.error('❌ Categories query failed:', results[2].reason)
+      
+      console.log('📝 Setting state...')
+      const startSetState = performance.now()
+      
       setProjects(projectsData)
       setImages(imagesData)
       setCategories(categoriesData)
       
-      // Data loading completed successfully
+      const setStateTime = performance.now() - startSetState
+      console.log(`⚙️ State update took ${setStateTime.toFixed(0)}ms`)
+      
+      const totalTime = performance.now() - startTotal
+      console.timeEnd('⏱️ ADMIN PAGE - Total Load Time')
+      
+      console.log(`
+╔════════════════════════════════════════════════╗
+║  ADMIN PAGE LOAD BREAKDOWN                     ║
+╠════════════════════════════════════════════════╣
+║  📊 Projects: ${projectsData.length.toString().padEnd(4)} items                        ║
+║  🖼️  Images: ${imagesData.length.toString().padEnd(4)} items                          ║
+║  📁 Categories: ${categoriesData.length.toString().padEnd(4)} items                    ║
+╠════════════════════════════════════════════════╣
+║  ⏱️  Fetch time: ${fetchTime.toFixed(0).padEnd(6)}ms                      ║
+║  ⚙️  State update: ${setStateTime.toFixed(0).padEnd(6)}ms                    ║
+║  🎯 TOTAL TIME: ${totalTime.toFixed(0).padEnd(6)}ms                      ║
+╚════════════════════════════════════════════════╝
+      `)
+      
+      if (totalTime > 5000) {
+        console.error(`⚠️⚠️⚠️ PERFORMANCE ISSUE: Total load time ${totalTime.toFixed(0)}ms (>5s)`)
+        if (fetchTime > 4000) {
+          console.error('🔍 DATABASE QUERIES ARE SLOW (>4s)')
+          console.error('💡 SOLUTIONS:')
+          console.error('   1. Verify indexes in Supabase (run scripts/add-performance-indexes.sql)')
+          console.error('   2. Check Supabase region matches your location')
+          console.error('   3. Consider enabling connection pooling')
+        } else if (setStateTime > 1000) {
+          console.error('🔍 FRONTEND RENDERING IS SLOW (>1s)')
+          console.error('💡 SOLUTIONS:')
+          console.error('   1. Implement pagination')
+          console.error('   2. Use virtualized lists')
+          console.error('   3. Optimize React component rendering')
+        }
+      }
+      
     } catch (error) {
-      // Error loading data: error
+      console.error('❌❌❌ FATAL ERROR in loadData:', error)
       const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred'
       setProjects([])
       setImages([])
@@ -463,29 +516,7 @@ const AdminProjectsPage = React.memo(function AdminProjectsPage() {
               <div className="flex items-center space-x-3">
                 <Button
                   variant="outline"
-                  onClick={async () => {
-                    setLoading(true)
-                    setError(null)
-                    SupabaseContentService.clearProjectCache()
-                    
-                    try {
-                      // Fetch fresh data without full page refresh
-                      const [projectsData, imagesData, categoriesData] = await Promise.all([
-                        SupabaseContentService.getAllProjects(),
-                        SupabaseContentService.getAllImages(),
-                        SupabaseContentService.getAllCategories()
-                      ])
-                      
-                      setProjects(projectsData)
-                      setImages(imagesData)
-                      setCategories(categoriesData)
-                      setUploadSuccess('Data refreshed successfully!')
-                    } catch (error) {
-                      setError('Error refreshing data: ' + (error instanceof Error ? error.message : 'Unknown error'))
-                    } finally {
-                      setLoading(false)
-                    }
-                  }}
+                  onClick={() => loadData()}
                   className="text-sm"
                   disabled={loading}
                 >
