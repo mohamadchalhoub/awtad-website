@@ -46,57 +46,22 @@ if (supabaseAnonKey.length < 100) {
   `)
 }
 
-// Create production-optimized Supabase client
+// Create ULTRA-FAST Supabase client optimized for tiny database (6 projects + 8 images)
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
-    persistSession: false, // Disable persistent localStorage storage for security
-    autoRefreshToken: true, // Enable auto refresh for better UX
-    detectSessionInUrl: true, // Enable session detection for auth flows
-    storage: {
-      // Use custom storage that's more secure
-      getItem: (key: string) => {
-        try {
-          // Only allow access to non-sensitive keys
-          if (key.includes('auth') || key.includes('token')) {
-            return null // Block access to sensitive auth data
-          }
-          return sessionStorage.getItem(key)
-        } catch {
-          return null
-        }
-      },
-      setItem: (key: string, value: string) => {
-        try {
-          // Only allow setting non-sensitive keys
-          if (key.includes('auth') || key.includes('token')) {
-            return // Block setting sensitive auth data
-          }
-          sessionStorage.setItem(key, value)
-        } catch {
-          // Silently fail if storage is not available
-        }
-      },
-      removeItem: (key: string) => {
-        try {
-          sessionStorage.removeItem(key)
-        } catch {
-          // Silently fail if storage is not available
-        }
-      }
-    }
+    persistSession: true, // Enable for better performance
+    autoRefreshToken: true,
+    detectSessionInUrl: true,
   },
   realtime: {
     params: {
-      eventsPerSecond: 1, // Limit realtime events for production
+      eventsPerSecond: 10, // Increase for better realtime performance
     },
   },
   global: {
     headers: {
-      'X-Client-Info': 'awtad-website-production',
-      'X-Client-Version': '1.0.0',
+      'X-Client-Info': 'awtad-website-v2',
     },
-    // REMOVED: Custom fetch timeout that was interfering with Supabase's built-in timeout handling
-    // Let Supabase use its default fetch mechanism for optimal performance
   },
   db: {
     schema: 'public',
