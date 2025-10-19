@@ -395,9 +395,13 @@ export class SupabaseContentService {
     subprojectsPreview: Array<{ id: number; title: string; slug: string; thumbnail_url?: string; created_at: string }> 
   }>> {
     try {
-      console.log('🔄 Using fallback method with separate queries...')
+      console.log('🔄 Using optimized fallback with parallel queries...')
+      console.time('⏱️ Fallback - Total Time')
+      const startTotal = performance.now()
       
-      // Fetch parent projects
+      // Step 1: Fetch parent projects (FAST with indexes)
+      console.time('⏱️ Fallback - Parent Projects')
+      const startParents = performance.now()
       const { data: parentProjects, error: parentError } = await supabase
         .from('projects')
         .select('id, title, category, description, year, cover_image_id, created_at, featured, parent_id, is_active, updated_at, created_by')
@@ -406,42 +410,69 @@ export class SupabaseContentService {
         .order('created_at', { ascending: false })
         .limit(30)
 
-      if (parentError || !parentProjects) {
-        console.error('❌ Fallback also failed:', parentError)
+      console.timeEnd('⏱️ Fallback - Parent Projects')
+      console.log(`   📊 Fetched ${parentProjects?.length || 0} parent projects in ${(performance.now() - startParents).toFixed(0)}ms`)
+
+      if (parentError || !parentProjects || parentProjects.length === 0) {
+        console.error('❌ Fallback: No parent projects found:', parentError)
+        console.timeEnd('⏱️ Fallback - Total Time')
         return []
       }
 
-      // Fetch subprojects
+      // Step 2 & 3: Fetch subprojects and images in PARALLEL
+      console.log('📡 Fetching subprojects and cover images in parallel...')
       const parentIds = parentProjects.map(p => p.id)
-      const { data: allSubprojects } = await supabase
-        .from('projects')
-        .select('id, title, parent_id, cover_image_id, created_at')
-        .eq('is_active', true)
-        .in('parent_id', parentIds)
-        .order('created_at', { ascending: false })
-        .limit(200)
-
-      // Collect image IDs
       const parentCoverImageIds = parentProjects.filter(p => p.cover_image_id).map(p => p.cover_image_id!)
-      const subprojectCoverImageIds = (allSubprojects || []).filter(sp => sp.cover_image_id).map(sp => sp.cover_image_id!)
-      const allImageIds = [...new Set([...parentCoverImageIds, ...subprojectCoverImageIds])]
 
-      // Fetch images
+      const startParallel = performance.now()
+      const [subprojectsResult, coverImagesResult] = await Promise.allSettled([
+        // Query 1: Fetch subprojects
+        supabase
+          .from('projects')
+          .select('id, title, parent_id, cover_image_id, created_at')
+          .eq('is_active', true)
+          .in('parent_id', parentIds)
+          .order('created_at', { ascending: false })
+          .limit(200),
+        
+        // Query 2: Fetch parent cover images
+        parentCoverImageIds.length > 0
+          ? supabase.from('images').select('id, url').in('id', parentCoverImageIds)
+          : Promise.resolve({ data: [], error: null })
+      ])
+
+      const parallelTime = performance.now() - startParallel
+      console.log(`   ⚡ Parallel queries completed in ${parallelTime.toFixed(0)}ms`)
+
+      // Extract data from parallel queries
+      const allSubprojects = subprojectsResult.status === 'fulfilled' ? (subprojectsResult.value.data || []) : []
       let coverImagesMap = new Map<string, string>()
-      if (allImageIds.length > 0) {
-        const { data: coverImages } = await supabase
+      
+      if (coverImagesResult.status === 'fulfilled' && coverImagesResult.value.data) {
+        coverImagesMap = new Map(coverImagesResult.value.data.map(img => [img.id, img.url]))
+      }
+
+      console.log(`   📊 Found ${allSubprojects.length} subprojects`)
+
+      // Step 4: Fetch subproject cover images if needed
+      const subprojectCoverImageIds = allSubprojects.filter(sp => sp.cover_image_id).map(sp => sp.cover_image_id!)
+      const newImageIds = subprojectCoverImageIds.filter(id => !coverImagesMap.has(id))
+      
+      if (newImageIds.length > 0) {
+        console.log(`   🖼️  Fetching ${newImageIds.length} additional subproject cover images...`)
+        const { data: subImages } = await supabase
           .from('images')
           .select('id, url')
-          .in('id', allImageIds)
+          .in('id', newImageIds)
         
-        if (coverImages) {
-          coverImagesMap = new Map(coverImages.map(img => [img.id, img.url]))
+        if (subImages) {
+          subImages.forEach(img => coverImagesMap.set(img.id, img.url))
         }
       }
 
-      // Group subprojects by parent
+      // Step 5: Group and combine data (FAST - in-memory)
       const subprojectsByParent = new Map<number, any[]>()
-      ;(allSubprojects || []).forEach(subproject => {
+      allSubprojects.forEach(subproject => {
         const parentId = subproject.parent_id!
         if (!subprojectsByParent.has(parentId)) {
           subprojectsByParent.set(parentId, [])
@@ -455,7 +486,6 @@ export class SupabaseContentService {
         })
       })
 
-      // Combine
       const result = parentProjects.map(project => {
         const subprojects = subprojectsByParent.get(project.id) || []
         return {
@@ -466,10 +496,22 @@ export class SupabaseContentService {
         }
       })
 
-      console.log(`✅ Fallback completed: ${result.length} projects`)
+      const totalTime = performance.now() - startTotal
+      console.timeEnd('⏱️ Fallback - Total Time')
+      console.log(`✅ Fallback completed: ${result.length} parents with ${allSubprojects.length} subprojects in ${totalTime.toFixed(0)}ms`)
+      
+      if (totalTime < 1000) {
+        console.log('🎉 EXCELLENT PERFORMANCE: <1s!')
+      } else if (totalTime < 2000) {
+        console.log('✅ GOOD PERFORMANCE: <2s')
+      } else {
+        console.warn('⚠️ Consider running database indexes: scripts/add-performance-indexes.sql')
+      }
+
       return result
     } catch (error) {
       console.error('❌ Fallback method also failed:', error)
+      console.timeEnd('⏱️ Fallback - Total Time')
       return []
     }
   }

@@ -94,43 +94,37 @@ const AdminProjectsPage = React.memo(function AdminProjectsPage() {
       setLoading(true)
       setError(null)
       
-      console.log('🚀🚀🚀 ADMIN PAGE: Starting data load...')
+      console.log('🚀 ADMIN PAGE: Starting optimized data load...')
       console.time('⏱️ ADMIN PAGE - Total Load Time')
       const startTotal = performance.now()
       
-      // DIAGNOSTIC: Temporarily clear cache to measure raw query times
-      console.log('🗑️ Clearing cache for performance diagnosis')
-      SupabaseContentService.clearProjectCache()
-      
-      console.log('📡 Fetching data in parallel with Promise.allSettled...')
+      console.log('📡 Fetching projects and categories in parallel...')
       const startFetch = performance.now()
       
-      // Use Promise.allSettled for better error handling and parallel execution
+      // OPTIMIZED: Only fetch projects and categories (images loaded on-demand)
       const results = await Promise.allSettled([
         SupabaseContentService.getAllProjects(),
-        SupabaseContentService.getAllImages(),
         SupabaseContentService.getAllCategories()
       ])
       
       const fetchTime = performance.now() - startFetch
-      console.log(`📊 All queries completed in ${fetchTime.toFixed(0)}ms`)
+      console.log(`📊 Queries completed in ${fetchTime.toFixed(0)}ms`)
       
-      // Extract results and log individual timings
+      // Extract results
       const projectsData = results[0].status === 'fulfilled' ? results[0].value : []
-      const imagesData = results[1].status === 'fulfilled' ? results[1].value : []
-      const categoriesData = results[2].status === 'fulfilled' ? results[2].value : []
+      const categoriesData = results[1].status === 'fulfilled' ? results[1].value : []
       
       // Log any failures
       if (results[0].status === 'rejected') console.error('❌ Projects query failed:', results[0].reason)
-      if (results[1].status === 'rejected') console.error('❌ Images query failed:', results[1].reason)
-      if (results[2].status === 'rejected') console.error('❌ Categories query failed:', results[2].reason)
+      if (results[1].status === 'rejected') console.error('❌ Categories query failed:', results[1].reason)
       
       console.log('📝 Setting state...')
       const startSetState = performance.now()
       
       setProjects(projectsData)
-      setImages(imagesData)
       setCategories(categoriesData)
+      // Don't fetch ALL images - they'll be loaded on-demand when needed
+      setImages([])
       
       const setStateTime = performance.now() - startSetState
       console.log(`⚙️ State update took ${setStateTime.toFixed(0)}ms`)
@@ -140,10 +134,9 @@ const AdminProjectsPage = React.memo(function AdminProjectsPage() {
       
       console.log(`
 ╔════════════════════════════════════════════════╗
-║  ADMIN PAGE LOAD BREAKDOWN                     ║
+║  🚀 ADMIN PAGE LOAD (OPTIMIZED)                ║
 ╠════════════════════════════════════════════════╣
 ║  📊 Projects: ${projectsData.length.toString().padEnd(4)} items                        ║
-║  🖼️  Images: ${imagesData.length.toString().padEnd(4)} items                          ║
 ║  📁 Categories: ${categoriesData.length.toString().padEnd(4)} items                    ║
 ╠════════════════════════════════════════════════╣
 ║  ⏱️  Fetch time: ${fetchTime.toFixed(0).padEnd(6)}ms                      ║
@@ -152,21 +145,12 @@ const AdminProjectsPage = React.memo(function AdminProjectsPage() {
 ╚════════════════════════════════════════════════╝
       `)
       
-      if (totalTime > 5000) {
-        console.error(`⚠️⚠️⚠️ PERFORMANCE ISSUE: Total load time ${totalTime.toFixed(0)}ms (>5s)`)
-        if (fetchTime > 4000) {
-          console.error('🔍 DATABASE QUERIES ARE SLOW (>4s)')
-          console.error('💡 SOLUTIONS:')
-          console.error('   1. Verify indexes in Supabase (run scripts/add-performance-indexes.sql)')
-          console.error('   2. Check Supabase region matches your location')
-          console.error('   3. Consider enabling connection pooling')
-        } else if (setStateTime > 1000) {
-          console.error('🔍 FRONTEND RENDERING IS SLOW (>1s)')
-          console.error('💡 SOLUTIONS:')
-          console.error('   1. Implement pagination')
-          console.error('   2. Use virtualized lists')
-          console.error('   3. Optimize React component rendering')
-        }
+      if (totalTime < 2000) {
+        console.log('✅ EXCELLENT: <2s load time!')
+      } else if (totalTime < 3000) {
+        console.log('✅ GOOD: <3s load time')
+      } else {
+        console.warn('⚠️ SLOW: Check indexes and Supabase region')
       }
       
     } catch (error) {

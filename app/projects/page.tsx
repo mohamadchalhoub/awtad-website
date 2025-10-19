@@ -95,13 +95,9 @@ export default function ProjectsPage() {
   const loadProjects = async () => {
     try {
       setIsLoadingProjects(true)
-      console.log('🚀🚀🚀 PUBLIC PROJECTS PAGE: Starting data load...')
+      console.log('🚀 PUBLIC PROJECTS PAGE: Starting optimized load...')
       console.time('⏱️ PUBLIC PAGE - Total Load Time')
       const startTotal = performance.now()
-      
-      // DIAGNOSTIC: Temporarily clear cache to measure raw query times
-      console.log('🗑️ Clearing cache for performance diagnosis')
-      SupabaseContentService.clearProjectCache()
       
       console.log('📡 Fetching parent projects with subprojects...')
       const startFetch = performance.now()
