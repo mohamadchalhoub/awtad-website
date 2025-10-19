@@ -101,7 +101,7 @@ const AdminProjectsPage = React.memo(function AdminProjectsPage() {
       console.log('📡 Fetching projects and categories in parallel...')
       const startFetch = performance.now()
       
-      // OPTIMIZED: Only fetch projects and categories (images loaded on-demand)
+      // OPTIMIZED: Fetch projects, categories, and only cover images
       const results = await Promise.allSettled([
         SupabaseContentService.getAllProjects(),
         SupabaseContentService.getAllCategories()
@@ -118,13 +118,26 @@ const AdminProjectsPage = React.memo(function AdminProjectsPage() {
       if (results[0].status === 'rejected') console.error('❌ Projects query failed:', results[0].reason)
       if (results[1].status === 'rejected') console.error('❌ Categories query failed:', results[1].reason)
       
+      // Fetch only cover images for displayed projects (FAST)
+      const coverImageIds = projectsData
+        .filter(p => p.cover_image_id)
+        .map(p => p.cover_image_id!)
+        .filter((id, index, self) => self.indexOf(id) === index) // unique IDs
+      
+      let coverImagesData: Tables<'images'>[] = []
+      if (coverImageIds.length > 0) {
+        console.log(`📸 Fetching ${coverImageIds.length} cover images...`)
+        const coverImagesResult = await SupabaseContentService.getImagesByIds(coverImageIds)
+        coverImagesData = coverImagesResult
+        console.log(`✅ Fetched ${coverImagesData.length} cover images`)
+      }
+      
       console.log('📝 Setting state...')
       const startSetState = performance.now()
       
       setProjects(projectsData)
       setCategories(categoriesData)
-      // Don't fetch ALL images - they'll be loaded on-demand when needed
-      setImages([])
+      setImages(coverImagesData)
       
       const setStateTime = performance.now() - startSetState
       console.log(`⚙️ State update took ${setStateTime.toFixed(0)}ms`)

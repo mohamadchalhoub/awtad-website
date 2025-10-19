@@ -1,7 +1,8 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { ImageService, type ImageData } from "@/lib/images"
+import { SupabaseContentService } from "@/lib/supabase-content"
+import type { Tables } from "@/lib/supabase"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Mail } from "lucide-react"
@@ -14,10 +15,11 @@ interface ProjectGalleryProps {
 }
 
 export function ProjectGallery({ projectId, category = "projects", limit, showTitle = true }: ProjectGalleryProps) {
-  const [images, setImages] = useState<ImageData[]>([])
-  const [selectedImage, setSelectedImage] = useState<ImageData | null>(null)
+  const [images, setImages] = useState<Tables<'images'>[]>([])
+  const [selectedImage, setSelectedImage] = useState<Tables<'images'> | null>(null)
+  const [loading, setLoading] = useState(true)
 
-  const handleOrderNow = (image: ImageData) => {
+  const handleOrderNow = (image: Tables<'images'>) => {
     const subject = encodeURIComponent(`Order Request for ${image.name}`)
     const body = encodeURIComponent(`Hello AWTAD Team,
 
@@ -37,20 +39,53 @@ Best regards,
   }
 
   useEffect(() => {
-    let galleryImages: ImageData[]
+    const loadImages = async () => {
+      try {
+        setLoading(true)
+        console.log('🖼️ ProjectGallery: Loading images...', { projectId, category, limit })
+        const startTime = performance.now()
 
-    if (projectId) {
-      galleryImages = ImageService.getImagesByProject(projectId)
-    } else {
-      galleryImages = ImageService.getImagesByCategory(category)
+        let galleryImages: Tables<'images'>[]
+
+        if (projectId) {
+          galleryImages = await SupabaseContentService.getImagesByProject(projectId)
+          console.log(`📊 Loaded ${galleryImages.length} images for project ${projectId} in ${(performance.now() - startTime).toFixed(0)}ms`)
+        } else {
+          galleryImages = await SupabaseContentService.getImagesByCategory(category)
+          console.log(`📊 Loaded ${galleryImages.length} images for category ${category} in ${(performance.now() - startTime).toFixed(0)}ms`)
+        }
+
+        if (limit) {
+          galleryImages = galleryImages.slice(0, limit)
+        }
+
+        setImages(galleryImages)
+      } catch (error) {
+        console.error('❌ Error loading gallery images:', error)
+        setImages([])
+      } finally {
+        setLoading(false)
+      }
     }
 
-    if (limit) {
-      galleryImages = galleryImages.slice(0, limit)
-    }
-
-    setImages(galleryImages)
+    loadImages()
   }, [projectId, category, limit])
+
+  if (loading) {
+    return (
+      <div className="space-y-6">
+        {showTitle && (
+          <h3 className="text-xl font-mono font-semibold text-foreground">
+            Project <span className="text-primary">Gallery</span>
+          </h3>
+        )}
+        <div className="text-center py-8 text-muted-foreground">
+          <div className="text-4xl mb-2">⏳</div>
+          <p className="text-sm">Loading images...</p>
+        </div>
+      </div>
+    )
+  }
 
   if (images.length === 0) {
     return null
@@ -75,7 +110,7 @@ Best regards,
               <div className="aspect-video bg-muted flex items-center justify-center overflow-hidden relative">
                 <img
                   src={image.url || "/placeholder.svg"}
-                  alt={image.name}
+                  alt={image.name || 'Project image'}
                   className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                   loading="lazy"
                 />

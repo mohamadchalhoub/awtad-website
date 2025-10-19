@@ -616,6 +616,22 @@ export class SupabaseContentService {
     return data || []
   }
 
+  static async getImagesByIds(imageIds: string[]): Promise<Tables<'images'>[]> {
+    if (imageIds.length === 0) return []
+    
+    const { data, error } = await supabase
+      .from('images')
+      .select('*')
+      .in('id', imageIds)
+
+    if (error) {
+      console.error('Error fetching images by IDs:', error)
+      return []
+    }
+
+    return data || []
+  }
+
   static async createImage(image: InsertDto<'images'>): Promise<Tables<'images'> | null> {
     const { data, error } = await supabase
       .from('images')
