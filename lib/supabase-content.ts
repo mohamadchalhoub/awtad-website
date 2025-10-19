@@ -94,22 +94,31 @@ export class SupabaseContentService {
       return cachedData
     }
 
+    console.log('🚀🚀🚀 START: getAllProjects called')
     console.time('⏱️ getAllProjects - Total Time')
     const startTotal = performance.now()
     
-    console.log('🔄 Fetching active projects...')
+    console.log('🔄 Fetching active projects with cover images...')
     const startQuery = performance.now()
 
-    // OPTIMIZED: Fetch projects with proper filtering and ordering
+    // OPTIMIZED: Use joined query to fetch projects with cover images in ONE call
     const { data, error } = await supabase
       .from('projects')
-      .select('*')
+      .select(`
+        *,
+        cover_image:images!cover_image_id(id, url)
+      `)
       .eq('is_active', true)
       .order('created_at', { ascending: false })
       .limit(200)
 
     const queryTime = performance.now() - startQuery
-    console.log(`⏱️ getAllProjects query: ${queryTime.toFixed(0)}ms`)
+    console.log(`⏱️ getAllProjects SINGLE joined query: ${queryTime.toFixed(0)}ms`)
+
+    if (queryTime > 1000) {
+      console.error(`❌ SLOW QUERY: getAllProjects took ${queryTime.toFixed(0)}ms`)
+      console.error('🔧 FIX: Run scripts/add-performance-indexes.sql in Supabase SQL Editor')
+    }
 
     if (error) {
       console.error(`❌ Error fetching projects:`, error)
@@ -119,8 +128,14 @@ export class SupabaseContentService {
 
     const result = data || []
     const totalTime = performance.now() - startTotal
-    console.log(`✅ Projects fetched: ${result.length} projects in ${totalTime.toFixed(0)}ms`)
+    console.log(`✅ Projects fetched: ${result.length} projects in ${totalTime.toFixed(0)}ms - SINGLE QUERY!`)
     console.timeEnd('⏱️ getAllProjects - Total Time')
+    
+    if (totalTime < 500) {
+      console.log('🎉 EXCELLENT PERFORMANCE: <500ms!')
+    } else if (totalTime < 1000) {
+      console.log('✅ GOOD PERFORMANCE: <1s')
+    }
     
     // Cache the result
     this.setCachedData(cacheKey, result)
@@ -377,7 +392,7 @@ export class SupabaseContentService {
   }
 
   // Get parent projects with subprojects count and preview
-  // OPTIMIZED: Use selective fields and batched queries for maximum performance
+  // OPTIMIZED: Use Supabase joined queries for maximum performance (1 query instead of 3!)
   static async getParentProjectsWithSubprojects(): Promise<Array<Tables<'projects'> & { 
     cover_image_url?: string;
     subprojectsCount: number; 
@@ -395,153 +410,98 @@ export class SupabaseContentService {
       console.time('⏱️ getParentProjectsWithSubprojects - Total Time')
       const startTotal = performance.now()
       
-      // OPTIMIZED: Fetch only necessary fields for parent projects
-      const startParentQuery = performance.now()
-      const { data: parentProjects, error: parentError } = await supabase
+      // OPTIMIZED: Single joined query fetches projects + cover images + subprojects in ONE call!
+      const startQuery = performance.now()
+      const { data: projectsData, error: projectsError } = await supabase
         .from('projects')
-        .select('id, title, category, description, year, cover_image_id, created_at, featured, parent_id, is_active, updated_at, created_by')
-        .eq('is_active', true)
+        .select(`
+          id,
+          title,
+          category,
+          description,
+          year,
+          cover_image_id,
+          created_at,
+          featured,
+          parent_id,
+          is_active,
+          updated_at,
+          created_by,
+          cover_image:images!cover_image_id(id, url),
+          subprojects:projects!parent_id(
+            id,
+            title,
+            created_at,
+            cover_image_id,
+            cover_image:images!cover_image_id(id, url)
+          )
+        `)
         .is('parent_id', null)
+        .eq('is_active', true)
         .order('created_at', { ascending: false })
         .limit(30)
 
-      const parentQueryTime = performance.now() - startParentQuery
-      console.log(`⏱️ Parent projects query: ${parentQueryTime.toFixed(0)}ms - fetched ${parentProjects?.length || 0} projects`)
+      const queryTime = performance.now() - startQuery
+      console.log(`⏱️ SINGLE joined query: ${queryTime.toFixed(0)}ms - fetched ${projectsData?.length || 0} projects with subprojects`)
       
-      if (parentQueryTime > 1000) {
-        console.error(`❌ SLOW QUERY: Parent projects took ${parentQueryTime.toFixed(0)}ms`)
+      if (queryTime > 1000) {
+        console.error(`❌ SLOW QUERY: Joined query took ${queryTime.toFixed(0)}ms`)
         console.error('🔧 FIX: Run scripts/add-performance-indexes.sql in Supabase SQL Editor')
       }
 
-      if (parentError) {
-        console.error('❌ Error fetching parent projects:', parentError)
+      if (projectsError) {
+        console.error('❌ Error fetching projects with joins:', projectsError)
         console.timeEnd('⏱️ getParentProjectsWithSubprojects - Total Time')
         return []
       }
 
-      if (!parentProjects || parentProjects.length === 0) {
+      if (!projectsData || projectsData.length === 0) {
         console.log('ℹ️ No parent projects found')
         console.timeEnd('⏱️ getParentProjectsWithSubprojects - Total Time')
         return []
       }
 
-      console.log(`📊 Fetched ${parentProjects.length} parent projects`)
+      // Transform the joined data to our interface
+      const result = projectsData.map((project: any) => {
+        const subprojects = (project.subprojects || []).map((sub: any) => ({
+          id: sub.id,
+          title: sub.title,
+          slug: sub.id.toString(),
+          thumbnail_url: sub.cover_image?.url,
+          created_at: sub.created_at
+        }))
 
-      // OPTIMIZED: Fetch only necessary fields for subprojects
-      const parentIds = parentProjects.map(p => p.id)
-      const startSubprojectsQuery = performance.now()
-      
-      const { data: allSubprojects, error: subprojectsError } = await supabase
-        .from('projects')
-        .select('id, title, parent_id, cover_image_id, created_at')
-        .eq('is_active', true)
-        .in('parent_id', parentIds)
-        .order('created_at', { ascending: false })
-        .limit(200)
-
-      const subprojectsQueryTime = performance.now() - startSubprojectsQuery
-      console.log(`⏱️ Subprojects query: ${subprojectsQueryTime.toFixed(0)}ms - fetched ${allSubprojects?.length || 0} subprojects`)
-      
-      if (subprojectsQueryTime > 1000) {
-        console.error(`❌ SLOW QUERY: Subprojects took ${subprojectsQueryTime.toFixed(0)}ms`)
-        console.error('🔧 FIX: Run scripts/add-performance-indexes.sql in Supabase SQL Editor')
-      }
-
-      if (subprojectsError) {
-        console.warn('⚠️ Error fetching subprojects:', subprojectsError)
-      }
-
-      // Collect all cover image IDs (both parent and subproject)
-      const parentCoverImageIds = parentProjects
-        .filter(p => p.cover_image_id)
-        .map(p => p.cover_image_id!)
-      
-      const subprojectCoverImageIds = (allSubprojects || [])
-        .filter(sp => sp.cover_image_id)
-        .map(sp => sp.cover_image_id!)
-      
-      // Combine and deduplicate image IDs
-      const allImageIds = [...new Set([...parentCoverImageIds, ...subprojectCoverImageIds])]
-
-      // OPTIMIZED: Batch fetch images in chunks if there are many IDs
-      let coverImagesMap = new Map<string, string>()
-      if (allImageIds.length > 0) {
-        const startImagesQuery = performance.now()
-        
-        // Split into chunks of 150 to avoid huge IN queries
-        const CHUNK_SIZE = 150
-        if (allImageIds.length > CHUNK_SIZE) {
-          console.log(`📦 Batching ${allImageIds.length} image IDs into chunks of ${CHUNK_SIZE}`)
-          const imageChunks: string[][] = []
-          for (let i = 0; i < allImageIds.length; i += CHUNK_SIZE) {
-            imageChunks.push(allImageIds.slice(i, i + CHUNK_SIZE))
-          }
-          
-          // Fetch all chunks in parallel
-          const imageResults = await Promise.all(
-            imageChunks.map(chunk => 
-              supabase
-                .from('images')
-                .select('id, url')
-                .in('id', chunk)
-            )
-          )
-          
-          // Combine results
-          const allImages = imageResults.flatMap(result => result.data || [])
-          coverImagesMap = new Map(allImages.map(img => [img.id, img.url]))
-          console.log(`📊 Fetched ${allImages.length} cover images in ${imageChunks.length} batches`)
-        } else {
-          const { data: coverImages, error: imagesError } = await supabase
-            .from('images')
-            .select('id, url')
-            .in('id', allImageIds)
-
-          if (!imagesError && coverImages) {
-            coverImagesMap = new Map(coverImages.map(img => [img.id, img.url]))
-            console.log(`📊 Fetched ${coverImages.length} cover images`)
-          }
-        }
-        
-        const imagesQueryTime = performance.now() - startImagesQuery
-        console.log(`⏱️ Images query: ${imagesQueryTime.toFixed(0)}ms`)
-        
-        if (imagesQueryTime > 1000) {
-          console.error(`❌ SLOW QUERY: Images took ${imagesQueryTime.toFixed(0)}ms`)
-          console.error('🔧 FIX: Run scripts/add-performance-indexes.sql in Supabase SQL Editor')
-        }
-      }
-
-      // Group subprojects by parent_id
-      const subprojectsByParent = new Map<number, any[]>()
-      ;(allSubprojects || []).forEach(subproject => {
-        const parentId = subproject.parent_id!
-        if (!subprojectsByParent.has(parentId)) {
-          subprojectsByParent.set(parentId, [])
-        }
-        subprojectsByParent.get(parentId)!.push({
-          id: subproject.id,
-          title: subproject.title,
-          slug: subproject.id.toString(),
-          thumbnail_url: subproject.cover_image_id ? coverImagesMap.get(subproject.cover_image_id) : undefined,
-          created_at: subproject.created_at
-        })
-      })
-
-      // Combine parent projects with their subprojects data
-      const result = parentProjects.map(project => {
-        const subprojects = subprojectsByParent.get(project.id) || []
         return {
-          ...project,
-          cover_image_url: project.cover_image_id ? coverImagesMap.get(project.cover_image_id) : undefined,
+          id: project.id,
+          title: project.title,
+          category: project.category,
+          description: project.description,
+          year: project.year,
+          cover_image_id: project.cover_image_id,
+          created_at: project.created_at,
+          featured: project.featured,
+          parent_id: project.parent_id,
+          is_active: project.is_active,
+          updated_at: project.updated_at,
+          created_by: project.created_by,
+          cover_image_url: project.cover_image?.url,
           subprojectsCount: subprojects.length,
-          subprojectsPreview: subprojects.slice(0, 6) // First 6 for preview
+          subprojectsPreview: subprojects.slice(0, 6)
         }
       })
 
       const totalTime = performance.now() - startTotal
-      console.log(`✅ Public projects completed in ${totalTime.toFixed(0)}ms (${result.length} parents, ${allSubprojects?.length || 0} subprojects, ${coverImagesMap.size} images)`)
+      const totalSubprojects = result.reduce((sum, p) => sum + p.subprojectsCount, 0)
+      console.log(`✅ Public projects completed in ${totalTime.toFixed(0)}ms (${result.length} parents, ${totalSubprojects} subprojects) - SINGLE QUERY!`)
       console.timeEnd('⏱️ getParentProjectsWithSubprojects - Total Time')
+
+      if (totalTime < 500) {
+        console.log('🎉 EXCELLENT PERFORMANCE: <500ms!')
+      } else if (totalTime < 1000) {
+        console.log('✅ GOOD PERFORMANCE: <1s')
+      } else {
+        console.warn('⚠️ NEEDS IMPROVEMENT: >1s - Check indexes')
+      }
 
       this.setCachedData(cacheKey, result)
       return result
@@ -1019,6 +979,7 @@ export class SupabaseContentService {
   }
 
   // Get projects with cover images (for admin page) with pagination
+  // OPTIMIZED: Use Supabase joined query for instant results
   static async getProjectsWithCoverImages(
     page: number = 0, 
     perPage: number = 50
@@ -1037,17 +998,36 @@ export class SupabaseContentService {
       console.time(`⏱️ getProjectsWithCoverImages (page ${page})`)
       const startTotal = performance.now()
       
-      // OPTIMIZED: Fetch only necessary fields with pagination and count
-      const startProjectsQuery = performance.now()
+      // OPTIMIZED: Single joined query fetches projects + cover images in ONE call!
+      const startQuery = performance.now()
       const { data: projectsData, error: projectsError, count } = await supabase
         .from('projects')
-        .select('id, title, cover_image_id, created_at, is_active, featured, category, year, description, parent_id, updated_at, created_by', { count: 'exact' })
+        .select(`
+          id,
+          title,
+          cover_image_id,
+          created_at,
+          is_active,
+          featured,
+          category,
+          year,
+          description,
+          parent_id,
+          updated_at,
+          created_by,
+          cover_image:images!cover_image_id(id, url)
+        `, { count: 'exact' })
         .eq('is_active', true)
         .order('created_at', { ascending: false })
         .range(page * perPage, (page + 1) * perPage - 1)
 
-      const projectsQueryTime = performance.now() - startProjectsQuery
-      console.log(`⏱️ Admin projects query (page ${page}): ${projectsQueryTime.toFixed(0)}ms - fetched ${projectsData?.length || 0} projects`)
+      const queryTime = performance.now() - startQuery
+      console.log(`⏱️ SINGLE joined query (page ${page}): ${queryTime.toFixed(0)}ms - fetched ${projectsData?.length || 0} projects`)
+
+      if (queryTime > 1000) {
+        console.error(`❌ SLOW QUERY: Joined query took ${queryTime.toFixed(0)}ms`)
+        console.error('🔧 FIX: Run scripts/add-performance-indexes.sql in Supabase SQL Editor')
+      }
 
       if (projectsError) {
         console.error('❌ Error fetching projects:', projectsError)
@@ -1060,65 +1040,32 @@ export class SupabaseContentService {
         return { projects: [], total: count || 0 }
       }
 
-      // OPTIMIZED: Batch fetch cover images in chunks if many IDs
-      const coverImageIds = projectsData
-        .filter(project => project.cover_image_id)
-        .map(project => project.cover_image_id!)
-
-      let coverImages: any[] = []
-      if (coverImageIds.length > 0) {
-        const startImagesQuery = performance.now()
-        
-        // Split into chunks of 100 to avoid huge IN queries
-        const CHUNK_SIZE = 100
-        if (coverImageIds.length > CHUNK_SIZE) {
-          console.log(`📦 Batching ${coverImageIds.length} image IDs into chunks of ${CHUNK_SIZE}`)
-          const imageChunks: string[][] = []
-          for (let i = 0; i < coverImageIds.length; i += CHUNK_SIZE) {
-            imageChunks.push(coverImageIds.slice(i, i + CHUNK_SIZE))
-          }
-          
-          // Fetch all chunks in parallel
-          const imageResults = await Promise.all(
-            imageChunks.map(chunk => 
-              supabase
-                .from('images')
-                .select('id, url')
-                .in('id', chunk)
-            )
-          )
-          
-          // Combine results
-          coverImages = imageResults.flatMap(result => result.data || [])
-        } else {
-          const { data: imagesData, error: imagesError } = await supabase
-            .from('images')
-            .select('id, url')
-            .in('id', coverImageIds)
-
-          if (imagesError) {
-            console.error('❌ Error fetching cover images:', imagesError)
-          } else {
-            coverImages = imagesData || []
-          }
-        }
-        
-        const imagesQueryTime = performance.now() - startImagesQuery
-        console.log(`⏱️ Admin images query: ${imagesQueryTime.toFixed(0)}ms - fetched ${coverImages.length} images`)
-      }
-
-      // Create a map for quick lookup
-      const coverImageMap = new Map(coverImages.map(img => [img.id, img.url]))
-
-      // Combine projects with their cover images
-      const result = projectsData.map(project => ({
-        ...project,
-        cover_image_url: project.cover_image_id ? coverImageMap.get(project.cover_image_id) : undefined
+      // Transform the joined data
+      const result = projectsData.map((project: any) => ({
+        id: project.id,
+        title: project.title,
+        cover_image_id: project.cover_image_id,
+        created_at: project.created_at,
+        is_active: project.is_active,
+        featured: project.featured,
+        category: project.category,
+        year: project.year,
+        description: project.description,
+        parent_id: project.parent_id,
+        updated_at: project.updated_at,
+        created_by: project.created_by,
+        cover_image_url: project.cover_image?.url
       }))
 
       const totalTime = performance.now() - startTotal
-      console.log(`✅ Admin projects with covers completed in ${totalTime.toFixed(0)}ms (${result.length} projects, page ${page})`)
+      console.log(`✅ Admin projects completed in ${totalTime.toFixed(0)}ms (${result.length} projects, page ${page}) - SINGLE QUERY!`)
       console.timeEnd(`⏱️ getProjectsWithCoverImages (page ${page})`)
+
+      if (totalTime < 500) {
+        console.log('🎉 EXCELLENT PERFORMANCE: <500ms!')
+      } else if (totalTime < 1000) {
+        console.log('✅ GOOD PERFORMANCE: <1s')
+      }
 
       const response = { projects: result, total: count || 0 }
       this.setCachedData(cacheKey, response)
