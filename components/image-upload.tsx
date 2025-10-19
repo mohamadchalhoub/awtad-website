@@ -33,16 +33,6 @@ export function ImageUpload({ onUploadComplete, defaultCategory = "general", pro
   const defaultCategories = ["general", "Commercial", "Industrial", "Residential", "Infrastructure", "projects", "team", "services", "hero"]
   const categoryOptions = categories?.map(cat => cat.name) || defaultCategories
 
-  // Convert file to base64 data URL
-  const fileToDataUrl = (file: File): Promise<string> => {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader()
-      reader.onload = () => resolve(reader.result as string)
-      reader.onerror = reject
-      reader.readAsDataURL(file)
-    })
-  }
-
   const handleFileUpload = useCallback(
     async (files: FileList | null) => {
       if (!files || files.length === 0) return
@@ -61,15 +51,37 @@ export function ImageUpload({ onUploadComplete, defaultCategory = "general", pro
         }
 
         const file = files[0]
+        
+        // Validate file size (max 5MB)
+        const maxSize = 5 * 1024 * 1024
+        if (file.size > maxSize) {
+          setError("File size must be less than 5MB")
+          setIsUploading(false)
+          return
+        }
+
         setSelectedFile(file)
         
-        // Convert file to base64 data URL for persistent storage
-        const dataUrl = await fileToDataUrl(file)
+        // Upload to Vercel Blob via API route
+        const formData = new FormData()
+        formData.append('file', file)
         
-        // Create image data for Supabase
+        const uploadResponse = await fetch('/api/upload-image', {
+          method: 'POST',
+          body: formData,
+        })
+        
+        if (!uploadResponse.ok) {
+          const errorData = await uploadResponse.json()
+          throw new Error(errorData.error || 'Failed to upload image')
+        }
+        
+        const { url: blobUrl } = await uploadResponse.json()
+        
+        // Create image data for Supabase with Vercel Blob URL
         const imageData = {
           name: file.name,
-          url: dataUrl,
+          url: blobUrl, // ✅ Vercel Blob URL instead of base64
           category: category,
           project_id: projectId || null,
           file_size: file.size,
@@ -80,17 +92,15 @@ export function ImageUpload({ onUploadComplete, defaultCategory = "general", pro
           price: priceValue || 0
         }
 
-        // Upload to Supabase
+        // Save metadata to Supabase
         const uploadedImage = await SupabaseContentService.createImage(imageData)
         
         if (uploadedImage) {
-          setSuccess(`Image "${file.name}" uploaded successfully!`)
+          setSuccess(`Image "${file.name}" uploaded successfully to Vercel Blob!`)
           onUploadComplete?.(uploadedImage)
         } else {
-          setError("Failed to upload image to database")
+          setError("Failed to save image metadata to database")
         }
-        
-        // Note: We don't need to revoke URLs anymore since we're using data URLs
       } catch (err) {
         setError(err instanceof Error ? err.message : "Upload failed")
       } finally {

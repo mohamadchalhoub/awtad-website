@@ -42,12 +42,12 @@ export default function HomePage() {
         const featuredProjects = await SupabaseContentService.getFeaturedProjects(6)
         
         // OPTIMIZATION: Batch fetch all cover images in ONE query
+        // ✅ cover_image_id is a string UUID, not a number!
         const coverImageIds = featuredProjects
           .filter(p => p.cover_image_id)
-          .map(p => Number(p.cover_image_id))
-          .filter(id => !isNaN(id))
+          .map(p => p.cover_image_id!)
         
-        let coverImagesMap = new Map<number, string>()
+        let coverImagesMap = new Map<string, string>()
         if (coverImageIds.length > 0) {
           const { data: imagesData } = await supabase
             .from('images')
@@ -67,7 +67,7 @@ export default function HomePage() {
           description: project.description,
           year: project.year,
           coverImageId: project.cover_image_id || undefined,
-          coverImageUrl: project.cover_image_id ? coverImagesMap.get(Number(project.cover_image_id)) : undefined,
+          coverImageUrl: project.cover_image_id ? coverImagesMap.get(project.cover_image_id) : undefined,
           parent_id: project.parent_id
         }))
         

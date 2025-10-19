@@ -101,10 +101,11 @@ const AdminProjectsPage = React.memo(function AdminProjectsPage() {
       console.log('📡 Fetching projects and categories in parallel...')
       const startFetch = performance.now()
       
-      // OPTIMIZED: Fetch projects, categories, and only cover images
+      // OPTIMIZED: Fetch projects, categories, and ALL images
       const results = await Promise.allSettled([
         SupabaseContentService.getAllProjects(),
-        SupabaseContentService.getAllCategories()
+        SupabaseContentService.getAllCategories(),
+        SupabaseContentService.getAllImages()  // ✅ Fetch ALL images for accurate counts
       ])
       
       const fetchTime = performance.now() - startFetch
@@ -113,31 +114,21 @@ const AdminProjectsPage = React.memo(function AdminProjectsPage() {
       // Extract results
       const projectsData = results[0].status === 'fulfilled' ? results[0].value : []
       const categoriesData = results[1].status === 'fulfilled' ? results[1].value : []
+      const imagesData = results[2].status === 'fulfilled' ? results[2].value : []
       
       // Log any failures
       if (results[0].status === 'rejected') console.error('❌ Projects query failed:', results[0].reason)
       if (results[1].status === 'rejected') console.error('❌ Categories query failed:', results[1].reason)
+      if (results[2].status === 'rejected') console.error('❌ Images query failed:', results[2].reason)
       
-      // Fetch only cover images for displayed projects (FAST)
-      const coverImageIds = projectsData
-        .filter(p => p.cover_image_id)
-        .map(p => p.cover_image_id!)
-        .filter((id, index, self) => self.indexOf(id) === index) // unique IDs
-      
-      let coverImagesData: Tables<'images'>[] = []
-      if (coverImageIds.length > 0) {
-        console.log(`📸 Fetching ${coverImageIds.length} cover images...`)
-        const coverImagesResult = await SupabaseContentService.getImagesByIds(coverImageIds)
-        coverImagesData = coverImagesResult
-        console.log(`✅ Fetched ${coverImagesData.length} cover images`)
-      }
+      console.log(`📸 Fetched ${imagesData.length} images (Vercel Blob URLs - fast!)`)
       
       console.log('📝 Setting state...')
       const startSetState = performance.now()
       
       setProjects(projectsData)
       setCategories(categoriesData)
-      setImages(coverImagesData)
+      setImages(imagesData)  // ✅ ALL images, not just cover images
       
       const setStateTime = performance.now() - startSetState
       console.log(`⚙️ State update took ${setStateTime.toFixed(0)}ms`)
@@ -151,6 +142,7 @@ const AdminProjectsPage = React.memo(function AdminProjectsPage() {
 ╠════════════════════════════════════════════════╣
 ║  📊 Projects: ${projectsData.length.toString().padEnd(4)} items                        ║
 ║  📁 Categories: ${categoriesData.length.toString().padEnd(4)} items                    ║
+║  📸 Images: ${imagesData.length.toString().padEnd(4)} items                          ║
 ╠════════════════════════════════════════════════╣
 ║  ⏱️  Fetch time: ${fetchTime.toFixed(0).padEnd(6)}ms                      ║
 ║  ⚙️  State update: ${setStateTime.toFixed(0).padEnd(6)}ms                    ║
@@ -1022,26 +1014,26 @@ const AdminProjectsPage = React.memo(function AdminProjectsPage() {
                             <ImageUpload 
                               onUploadComplete={async (imageData) => {
                                 try {
-                                  // Update the image with the project_id since it was already created
-                                  const result = await SupabaseContentService.updateImage(imageData.id, {
-                                    project_id: editingProject.id
+                                  // The image was already created with the project_id by ImageUpload component
+                                  // Just add it to the state if it's not already there
+                                  setImages(prev => {
+                                    const exists = prev.some(img => img.id === imageData.id)
+                                    if (exists) {
+                                      // Update existing
+                                      return prev.map(img => 
+                                        img.id === imageData.id ? imageData : img
+                                      )
+                                    } else {
+                                      // Add new image
+                                      return [...prev, imageData]
+                                    }
                                   })
                                   
-                                  if (result) {
-                                    // Update images state without full refresh
-                                    setImages(prev => prev.map(img => 
-                                      img.id === imageData.id 
-                                        ? { ...img, project_id: editingProject.id }
-                                        : img
-                                    ))
-                                    SupabaseContentService.clearProjectCache()
-                                    await refreshContent()
-                                    setUploadSuccess(`Image "${imageData.name}" uploaded successfully!`)
-                                  } else {
-                                    setUploadError('Failed to link image to project. Please try again.')
-                                  }
+                                  SupabaseContentService.clearProjectCache()
+                                  await refreshContent()
+                                  setUploadSuccess(`Image "${imageData.name}" uploaded successfully!`)
                                 } catch (error) {
-                                  setUploadError('Error linking image to project: ' + (error instanceof Error ? error.message : 'Unknown error'))
+                                  setUploadError('Error adding image: ' + (error instanceof Error ? error.message : 'Unknown error'))
                                 }
                               }}
                               projectId={editingProject.id}

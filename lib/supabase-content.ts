@@ -407,10 +407,28 @@ export class SupabaseContentService {
 
       const allSubprojects = subprojectsResult.status === 'fulfilled' ? (subprojectsResult.value.data || []) : []
       
-      // SKIP fetching image URLs - they contain 18MB of base64 data!
-      // Images will need to be fetched individually on-demand when viewing project details
-      console.log(`⚠️ Skipping image URL fetch (18MB base64 data) - ${allSubprojects.length} subprojects fetched`)
+      // Step 3: Fetch cover images for both parent projects AND subprojects
+      // ✅ NOW SAFE: URLs are Vercel Blob links (tiny!), not base64 data
+      const subprojectCoverImageIds = allSubprojects.filter(p => p.cover_image_id).map(p => p.cover_image_id!)
+      const allCoverImageIds = [...new Set([...parentCoverImageIds, ...subprojectCoverImageIds])]
+      
       const coverImagesMap = new Map<string, string>()
+      if (allCoverImageIds.length > 0) {
+        const startImages = performance.now()
+        const { data: coverImages, error: coverImagesError } = await supabase
+          .from('images')
+          .select('id, url')
+          .in('id', allCoverImageIds)
+        
+        const imagesTime = performance.now() - startImages
+        console.log(`📸 Fetched ${coverImages?.length || 0} cover images in ${imagesTime.toFixed(0)}ms (Vercel Blob URLs)`)
+        
+        if (coverImagesError) {
+          console.error('Error fetching cover images:', coverImagesError)
+        } else if (coverImages) {
+          coverImages.forEach(img => coverImagesMap.set(img.id, img.url))
+        }
+      }
 
       // Step 4: Combine data (in-memory, instant)
       const subprojectsByParent = new Map<number, any[]>()
@@ -470,18 +488,17 @@ export class SupabaseContentService {
     return this.getParentProjectsWithSubprojectsFallback()
   }
 
-  // Images (8 images total - but URLs are 18MB of base64 data!)
-  // CRITICAL: Do NOT fetch 'url' field - it contains base64-encoded images (1-8 MB each!)
+  // Images (8 images total - now using Vercel Blob URLs - fast!)
   static async getAllImages(): Promise<Tables<'images'>[]> {
     const cacheKey = 'all_images'
     const cachedData = this.getCachedData(cacheKey)
     if (cachedData) return cachedData
 
     const startTime = performance.now()
-    // IMPORTANT: Only fetch metadata, NOT the url field (contains 18MB of base64 data!)
+    // ✅ NOW SAFE: URLs are now Vercel Blob links (tiny!), not base64 data
     const { data, error } = await supabase
       .from('images')
-      .select('id, name, category, project_id, created_at, is_cover_image, alt_text, file_size, mime_type, price, created_by, upload_date')
+      .select('*')
       .order('created_at', { ascending: false })
 
     if (error) {
@@ -491,20 +508,19 @@ export class SupabaseContentService {
 
     const result = data || []
     const queryTime = performance.now() - startTime
-    console.log(`📊 getAllImages (metadata only): ${result.length} images in ${queryTime.toFixed(0)}ms`)
+    console.log(`✅ getAllImages with URLs: ${result.length} images in ${queryTime.toFixed(0)}ms`)
     
     if (queryTime > 500) {
       console.warn(`⚠️ SLOW: getAllImages took ${queryTime.toFixed(0)}ms (expected <500ms)`)
     }
     
     this.setCachedData(cacheKey, result)
-    return result as any // Type assertion since we're not fetching url
+    return result
   }
 
   static async getImagesByProject(projectId: number): Promise<Tables<'images'>[]> {
-    // Fetch WITH url field since we need to display them (but warn about performance)
-    console.log(`⚠️ Fetching images for project ${projectId} - may be slow due to 18MB base64 data`)
     const startTime = performance.now()
+    console.log(`📥 Fetching images for project ${projectId} (Vercel Blob URLs - fast!)`)
     
     const { data, error } = await supabase
       .from('images')
@@ -598,7 +614,19 @@ export class SupabaseContentService {
 
   static async deleteImage(id: string): Promise<boolean> {
     try {
-      // First, check if this image is being used as a cover image
+      // First, get the image URL to delete from Vercel Blob
+      const { data: imageData, error: fetchError } = await supabase
+        .from('images')
+        .select('url')
+        .eq('id', id)
+        .single()
+
+      if (fetchError) {
+        console.error('Error fetching image for deletion:', fetchError)
+        return false
+      }
+
+      // Check if this image is being used as a cover image
       const { data: projectsUsingImage, error: checkError } = await supabase
         .from('projects')
         .select('id, title')
@@ -627,17 +655,35 @@ export class SupabaseContentService {
         console.log('Successfully removed cover image references from projects')
       }
 
-      // Now delete the image
+      // Delete from database first
       const { error } = await supabase
         .from('images')
         .delete()
         .eq('id', id)
 
       if (error) {
-        console.error('Error deleting image:', error)
+        console.error('Error deleting image from database:', error)
         console.error('Error details:', error.message, error.details)
         console.error('Error code:', error.code)
         return false
+      }
+
+      // Then delete from Vercel Blob (if it's a Vercel Blob URL)
+      if (imageData?.url && imageData.url.includes('blob.vercel-storage.com')) {
+        try {
+          const deleteResponse = await fetch(`/api/delete-image?url=${encodeURIComponent(imageData.url)}`, {
+            method: 'DELETE',
+          })
+          
+          if (!deleteResponse.ok) {
+            console.warn('Failed to delete image from Vercel Blob, but database deletion succeeded')
+          } else {
+            console.log('✅ Image deleted from both database and Vercel Blob')
+          }
+        } catch (blobError) {
+          console.warn('Error deleting from Vercel Blob:', blobError)
+          // Don't fail the whole operation if Blob deletion fails
+        }
       }
 
       // Clear cache after deleting image

@@ -224,12 +224,8 @@ export default function ProjectsPage() {
 
   const handleDownloadAlbum = async (project: ProjectWithCover) => {
     try {
-      // Get project images from Supabase
-      const allImages = await SupabaseContentService.getAllImages()
-      const projectImages = allImages.filter(img => 
-        img.project_id === project.id || 
-        img.category.toLowerCase() === project.category.toLowerCase()
-      )
+      // Get project images from Supabase - ONLY for this specific project
+      const projectImages = await SupabaseContentService.getImagesByProject(project.id)
 
       if (projectImages.length === 0) {
         toast({

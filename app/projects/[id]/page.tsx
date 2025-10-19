@@ -72,9 +72,8 @@ export default function ProjectDetailPage() {
           // Get cover image if exists
           let coverImageUrl: string | undefined = undefined
           if (projectData.cover_image_id) {
-            const allImages = await SupabaseContentService.getAllImages()
-            const coverImage = allImages.find(img => img.id === projectData.cover_image_id)
-            coverImageUrl = coverImage?.url
+            const coverImages = await SupabaseContentService.getImagesByIds([projectData.cover_image_id])
+            coverImageUrl = coverImages[0]?.url
           }
           
           const foundProject: ProjectWithCover = {
@@ -108,12 +107,8 @@ export default function ProjectDetailPage() {
             }
           }
 
-          // Get project images from Supabase
-          const allImages = await SupabaseContentService.getAllImages()
-          const images = allImages.filter(img => 
-            img.project_id === projectId || 
-            img.category.toLowerCase() === foundProject.category.toLowerCase()
-          )
+          // Get project images from Supabase - ONLY for this specific project
+          const images = await SupabaseContentService.getImagesByProject(projectId)
           
           // Transform to match the expected format
           const transformedImages = images.map(img => ({
@@ -131,22 +126,26 @@ export default function ProjectDetailPage() {
           // Get sub-projects from Supabase
           const subProjectsData = await SupabaseContentService.getSubProjects(projectId)
           
-          // Get cover images for sub-projects
-          const subProjectsWithCovers = subProjectsData.map(sp => {
-            const coverImage = sp.cover_image_id 
-              ? allImages.find(img => img.id === sp.cover_image_id) 
-              : null
-            
-            return {
-              id: sp.id,
-              title: sp.title,
-              category: sp.category,
-              description: sp.description,
-              year: sp.year,
-              coverImageId: sp.cover_image_id || undefined,
-              coverImageUrl: coverImage?.url || undefined
-            }
-          })
+          // Get cover images for sub-projects (fetch only needed IDs)
+          const subProjectCoverImageIds = subProjectsData
+            .filter(sp => sp.cover_image_id)
+            .map(sp => sp.cover_image_id!)
+          
+          const subProjectCoverImages = subProjectCoverImageIds.length > 0
+            ? await SupabaseContentService.getImagesByIds(subProjectCoverImageIds)
+            : []
+          
+          const coverImageMap = new Map(subProjectCoverImages.map(img => [img.id, img.url]))
+          
+          const subProjectsWithCovers = subProjectsData.map(sp => ({
+            id: sp.id,
+            title: sp.title,
+            category: sp.category,
+            description: sp.description,
+            year: sp.year,
+            coverImageId: sp.cover_image_id || undefined,
+            coverImageUrl: sp.cover_image_id ? coverImageMap.get(sp.cover_image_id) : undefined
+          }))
           
           setSubProjects(subProjectsWithCovers)
         } catch (error) {
