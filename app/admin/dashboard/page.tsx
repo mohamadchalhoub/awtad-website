@@ -5,8 +5,7 @@ import { AdminNavigation } from "@/components/admin-navigation"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { useRouter } from "next/navigation"
-import { ImageService } from "@/lib/images"
-import { ContentService } from "@/lib/content"
+import { SupabaseContentService } from "@/lib/supabase-content"
 import { useState, useEffect } from "react"
 
 export default function AdminDashboardPage() {
@@ -16,17 +15,31 @@ export default function AdminDashboardPage() {
     totalProjects: 0,
     totalCategories: 0
   })
+  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    // Load statistics
-    const images = ImageService.getAllImages()
-    const content = ContentService.getContent()
+    // Load statistics from Supabase
+    const loadStats = async () => {
+      try {
+        const [projects, images, categories] = await Promise.all([
+          SupabaseContentService.getAllProjects(),
+          SupabaseContentService.getAllImages(),
+          SupabaseContentService.getAllCategories()
+        ])
+        
+        setStats({
+          totalImages: images.length,
+          totalProjects: projects.length,
+          totalCategories: categories.length
+        })
+      } catch (error) {
+        console.error('Error loading stats:', error)
+      } finally {
+        setLoading(false)
+      }
+    }
     
-    setStats({
-      totalImages: images.length,
-      totalProjects: content.projects.length,
-      totalCategories: new Set(images.map(img => img.category)).size
-    })
+    loadStats()
   }, [])
 
   const quickActions = [

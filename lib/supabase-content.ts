@@ -2,12 +2,12 @@ import { supabase } from './supabase'
 import type { Tables, InsertDto, UpdateDto } from './supabase'
 
 export class SupabaseContentService {
-  // Cache for storing fetched data
+  // AGGRESSIVE IN-MEMORY CACHE for tiny database (6 projects + 8 images = instant)
   private static cache = new Map<string, { data: any; timestamp: number }>()
-  private static CACHE_DURATION = 10 * 1000 // 10 seconds - very short for debugging
-  private static MAX_CACHE_SIZE = 100 // Limit cache size to prevent memory issues
+  private static CACHE_DURATION = 5 * 60 * 1000 // 5 MINUTES - aggressive caching for small dataset
+  private static MAX_CACHE_SIZE = 200 // More than enough for tiny database
 
-  // Clear expired cache entries
+  // Clear expired cache entries (rarely needed with 5min cache)
   private static clearExpiredCache() {
     const now = Date.now()
     for (const [key, value] of this.cache.entries()) {
@@ -19,17 +19,23 @@ export class SupabaseContentService {
 
   // Get cached data if available and not expired
   private static getCachedData(key: string): any | null {
-    this.clearExpiredCache()
     const cached = this.cache.get(key)
-    if (cached && Date.now() - cached.timestamp < this.CACHE_DURATION) {
-      return cached.data
+    if (cached) {
+      const age = Date.now() - cached.timestamp
+      if (age < this.CACHE_DURATION) {
+        console.log(`✅ CACHE HIT: ${key} (age: ${(age / 1000).toFixed(1)}s) - INSTANT!`)
+        return cached.data
+      } else {
+        console.log(`⏰ Cache expired: ${key} (age: ${(age / 1000).toFixed(1)}s)`)
+        this.cache.delete(key)
+      }
     }
     return null
   }
 
   // Set data in cache with size limit
   private static setCachedData(key: string, data: any) {
-    // Clear oldest entries if cache is too large
+    // Clear oldest entries if cache is too large (very unlikely with 6 projects + 8 images)
     if (this.cache.size >= this.MAX_CACHE_SIZE) {
       const oldestKey = this.cache.keys().next().value
       if (oldestKey) {
@@ -38,6 +44,7 @@ export class SupabaseContentService {
     }
     
     this.cache.set(key, { data, timestamp: Date.now() })
+    console.log(`💾 CACHED: ${key} (${data?.length || 0} items) - subsequent loads will be INSTANT`)
   }
 
   // Clear specific cache entry
@@ -84,57 +91,32 @@ export class SupabaseContentService {
     }
   }
 
-  // Projects
+  // Projects (6 projects total - should be instant)
   static async getAllProjects(): Promise<Tables<'projects'>[]> {
-    // Check cache first
     const cacheKey = 'all_projects'
     const cachedData = this.getCachedData(cacheKey)
-    if (cachedData) {
-      console.log('✅ All projects loaded from cache (instant)')
-      return cachedData
-    }
+    if (cachedData) return cachedData
 
-    console.log('🚀🚀🚀 START: getAllProjects called')
-    console.time('⏱️ getAllProjects - Total Time')
-    const startTotal = performance.now()
-    
-    console.log('🔄 Fetching active projects...')
-    const startQuery = performance.now()
-
-    // Use simple query without joins (joins require proper FK configuration)
+    const startTime = performance.now()
     const { data, error } = await supabase
       .from('projects')
       .select('*')
       .eq('is_active', true)
       .order('created_at', { ascending: false })
-      .limit(200)
-
-    const queryTime = performance.now() - startQuery
-    console.log(`⏱️ getAllProjects query: ${queryTime.toFixed(0)}ms`)
-
-    if (queryTime > 1000) {
-      console.error(`❌ SLOW QUERY: getAllProjects took ${queryTime.toFixed(0)}ms`)
-      console.error('🔧 FIX: Run scripts/add-performance-indexes.sql in Supabase SQL Editor')
-    }
 
     if (error) {
       console.error(`❌ Error fetching projects:`, error)
-      console.timeEnd('⏱️ getAllProjects - Total Time')
       return []
     }
 
     const result = data || []
-    const totalTime = performance.now() - startTotal
-    console.log(`✅ Projects fetched: ${result.length} projects in ${totalTime.toFixed(0)}ms`)
-    console.timeEnd('⏱️ getAllProjects - Total Time')
+    const queryTime = performance.now() - startTime
+    console.log(`📊 getAllProjects: ${result.length} projects in ${queryTime.toFixed(0)}ms`)
     
-    if (totalTime < 500) {
-      console.log('🎉 EXCELLENT PERFORMANCE: <500ms!')
-    } else if (totalTime < 1000) {
-      console.log('✅ GOOD PERFORMANCE: <1s')
+    if (queryTime > 500) {
+      console.warn(`⚠️ SLOW: getAllProjects took ${queryTime.toFixed(0)}ms (expected <500ms for 6 projects)`)
     }
     
-    // Cache the result
     this.setCachedData(cacheKey, result)
     return result
   }
@@ -388,63 +370,45 @@ export class SupabaseContentService {
     }
   }
 
-  // FALLBACK: Use separate queries if joined query fails (for backward compatibility)
+  // FALLBACK: Optimized parallel queries (6 projects + 8 images = should be instant)
   private static async getParentProjectsWithSubprojectsFallback(): Promise<Array<Tables<'projects'> & { 
     cover_image_url?: string;
     subprojectsCount: number; 
     subprojectsPreview: Array<{ id: number; title: string; slug: string; thumbnail_url?: string; created_at: string }> 
   }>> {
     try {
-      console.log('🔄 Using optimized fallback with parallel queries...')
-      console.time('⏱️ Fallback - Total Time')
       const startTotal = performance.now()
       
-      // Step 1: Fetch parent projects (FAST with indexes)
-      console.time('⏱️ Fallback - Parent Projects')
-      const startParents = performance.now()
+      // Step 1: Fetch parent projects (should be <100ms for 6 projects)
       const { data: parentProjects, error: parentError } = await supabase
         .from('projects')
         .select('id, title, category, description, year, cover_image_id, created_at, featured, parent_id, is_active, updated_at, created_by')
         .eq('is_active', true)
         .is('parent_id', null)
         .order('created_at', { ascending: false })
-        .limit(30)
-
-      console.timeEnd('⏱️ Fallback - Parent Projects')
-      console.log(`   📊 Fetched ${parentProjects?.length || 0} parent projects in ${(performance.now() - startParents).toFixed(0)}ms`)
 
       if (parentError || !parentProjects || parentProjects.length === 0) {
-        console.error('❌ Fallback: No parent projects found:', parentError)
-        console.timeEnd('⏱️ Fallback - Total Time')
+        console.error('❌ No parent projects found:', parentError)
         return []
       }
 
-      // Step 2 & 3: Fetch subprojects and images in PARALLEL
-      console.log('📡 Fetching subprojects and cover images in parallel...')
+      // Step 2: Fetch subprojects and images in PARALLEL
       const parentIds = parentProjects.map(p => p.id)
       const parentCoverImageIds = parentProjects.filter(p => p.cover_image_id).map(p => p.cover_image_id!)
 
-      const startParallel = performance.now()
       const [subprojectsResult, coverImagesResult] = await Promise.allSettled([
-        // Query 1: Fetch subprojects
         supabase
           .from('projects')
           .select('id, title, parent_id, cover_image_id, created_at')
           .eq('is_active', true)
           .in('parent_id', parentIds)
-          .order('created_at', { ascending: false })
-          .limit(200),
+          .order('created_at', { ascending: false }),
         
-        // Query 2: Fetch parent cover images
         parentCoverImageIds.length > 0
           ? supabase.from('images').select('id, url').in('id', parentCoverImageIds)
           : Promise.resolve({ data: [], error: null })
       ])
 
-      const parallelTime = performance.now() - startParallel
-      console.log(`   ⚡ Parallel queries completed in ${parallelTime.toFixed(0)}ms`)
-
-      // Extract data from parallel queries
       const allSubprojects = subprojectsResult.status === 'fulfilled' ? (subprojectsResult.value.data || []) : []
       let coverImagesMap = new Map<string, string>()
       
@@ -452,14 +416,11 @@ export class SupabaseContentService {
         coverImagesMap = new Map(coverImagesResult.value.data.map(img => [img.id, img.url]))
       }
 
-      console.log(`   📊 Found ${allSubprojects.length} subprojects`)
-
-      // Step 4: Fetch subproject cover images if needed
+      // Step 3: Fetch subproject cover images if needed
       const subprojectCoverImageIds = allSubprojects.filter(sp => sp.cover_image_id).map(sp => sp.cover_image_id!)
       const newImageIds = subprojectCoverImageIds.filter(id => !coverImagesMap.has(id))
       
       if (newImageIds.length > 0) {
-        console.log(`   🖼️  Fetching ${newImageIds.length} additional subproject cover images...`)
         const { data: subImages } = await supabase
           .from('images')
           .select('id, url')
@@ -470,7 +431,7 @@ export class SupabaseContentService {
         }
       }
 
-      // Step 5: Group and combine data (FAST - in-memory)
+      // Step 4: Combine data (in-memory, instant)
       const subprojectsByParent = new Map<number, any[]>()
       allSubprojects.forEach(subproject => {
         const parentId = subproject.parent_id!
@@ -497,21 +458,15 @@ export class SupabaseContentService {
       })
 
       const totalTime = performance.now() - startTotal
-      console.timeEnd('⏱️ Fallback - Total Time')
-      console.log(`✅ Fallback completed: ${result.length} parents with ${allSubprojects.length} subprojects in ${totalTime.toFixed(0)}ms`)
+      console.log(`📊 getParentProjectsWithSubprojects: ${result.length} parents + ${allSubprojects.length} subprojects in ${totalTime.toFixed(0)}ms`)
       
-      if (totalTime < 1000) {
-        console.log('🎉 EXCELLENT PERFORMANCE: <1s!')
-      } else if (totalTime < 2000) {
-        console.log('✅ GOOD PERFORMANCE: <2s')
-      } else {
-        console.warn('⚠️ Consider running database indexes: scripts/add-performance-indexes.sql')
+      if (totalTime > 1000) {
+        console.warn(`⚠️ SLOW: Query took ${totalTime.toFixed(0)}ms (expected <1s for tiny database)`)
       }
 
       return result
     } catch (error) {
-      console.error('❌ Fallback method also failed:', error)
-      console.timeEnd('⏱️ Fallback - Total Time')
+      console.error('❌ Failed to fetch projects:', error)
       return []
     }
   }
@@ -534,54 +489,31 @@ export class SupabaseContentService {
     return this.getParentProjectsWithSubprojectsFallback()
   }
 
-  // Images
+  // Images (8 images total - should be instant)
   static async getAllImages(): Promise<Tables<'images'>[]> {
-    // Check cache first
     const cacheKey = 'all_images'
     const cachedData = this.getCachedData(cacheKey)
-    if (cachedData) {
-      console.log('✅ Images loaded from cache (instant)')
-      return cachedData
-    }
+    if (cachedData) return cachedData
 
-    console.log('🚀🚀🚀 START: getAllImages called')
-    console.time('⏱️ getAllImages - Total Time')
-    const startTotal = performance.now()
-    
-    console.log('🔄 Fetching all images from Supabase...')
-    const startQuery = performance.now()
-
-    // OPTIMIZED: Use Supabase sorting with indexes
+    const startTime = performance.now()
     const { data, error } = await supabase
       .from('images')
       .select('*')
       .order('created_at', { ascending: false })
-      .limit(500)
-
-    const queryTime = performance.now() - startQuery
-    console.log(`⏱️ getAllImages DB query: ${queryTime.toFixed(0)}ms`)
-    
-    if (queryTime > 1000) {
-      console.error(`❌ SLOW QUERY: getAllImages took ${queryTime.toFixed(0)}ms (>1s)`)
-      console.error('💡 TIP: Run scripts/add-performance-indexes.sql in Supabase')
-    }
 
     if (error) {
       console.error('❌ Error fetching images:', error)
-      console.timeEnd('⏱️ getAllImages - Total Time')
       return []
     }
 
     const result = data || []
-    const totalTime = performance.now() - startTotal
-    console.log(`✅ Images fetched: ${result.length} images in ${totalTime.toFixed(0)}ms`)
-    console.timeEnd('⏱️ getAllImages - Total Time')
+    const queryTime = performance.now() - startTime
+    console.log(`📊 getAllImages: ${result.length} images in ${queryTime.toFixed(0)}ms`)
     
-    if (totalTime > 2000) {
-      console.error(`⚠️ PERFORMANCE WARNING: getAllImages total time ${totalTime.toFixed(0)}ms (>2s)`)
+    if (queryTime > 500) {
+      console.warn(`⚠️ SLOW: getAllImages took ${queryTime.toFixed(0)}ms (expected <500ms for 8 images)`)
     }
     
-    // Cache the result
     this.setCachedData(cacheKey, result)
     return result
   }

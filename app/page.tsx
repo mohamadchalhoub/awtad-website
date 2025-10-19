@@ -11,7 +11,6 @@ import { AnimatedSection, AnimatedCard } from "@/components/animated-section"
 import { motion } from "framer-motion"
 import { useState, useEffect } from "react"
 import Link from "next/link"
-import { ImageService } from "@/lib/images"
 import { useRouter } from "next/navigation"
 import { supabase } from "@/lib/supabase"
 
