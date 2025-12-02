@@ -373,15 +373,10 @@ export class SupabaseAuthService {
    */
   static cleanupLegacyStorage(): void {
     try {
-      // Remove old localStorage items
+      // Remove ONLY our old custom auth key from previous versions
+      // Important: DO NOT remove Supabase "sb-*" keys here, or you'll
+      // break Supabase's own session/token storage and cause 401s.
       localStorage.removeItem("awtad_auth_user")
-      
-      // Remove any Supabase auth tokens from localStorage
-      Object.keys(localStorage).forEach(key => {
-        if (key.includes('sb-') || key.includes('auth') || key.includes('token')) {
-          localStorage.removeItem(key)
-        }
-      })
     } catch (error) {
       console.warn('Failed to cleanup legacy storage:', error)
     }
