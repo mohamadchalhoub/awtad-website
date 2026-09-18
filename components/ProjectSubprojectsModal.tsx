@@ -123,19 +123,19 @@ export default function ProjectSubprojectsModal({
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       {/* Backdrop */}
       <div 
-        className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+        className="absolute inset-0 bg-[var(--overlay)] backdrop-blur-md"
         onClick={onClose}
       />
       
       {/* Modal */}
-      <div className="relative bg-white dark:bg-card rounded-lg shadow-xl max-w-6xl w-full max-h-[90vh] flex flex-col">
+      <div className="panel relative flex max-h-[90vh] w-full max-w-6xl flex-col overflow-hidden rounded-3xl">
         {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-border">
+        <div className="flex items-center justify-between border-b border-border p-6">
           <div>
-            <h2 className="text-xl font-semibold text-gray-900 dark:text-foreground">
+            <h2 className="text-title text-foreground">
               {parentProject.title} - Subprojects
             </h2>
-            <p className="text-sm text-gray-600 dark:text-muted-foreground mt-1">
+            <p className="mt-1.5 text-sm text-muted-foreground">
               {totalCount} subproject{totalCount !== 1 ? 's' : ''} total
             </p>
           </div>
@@ -143,7 +143,7 @@ export default function ProjectSubprojectsModal({
             variant="ghost"
             size="sm"
             onClick={onClose}
-            className="h-8 w-8 p-0"
+            className="h-9 w-9 rounded-full p-0 text-muted-foreground hover:text-foreground"
             aria-label="Close modal"
           >
             <X className="h-4 w-4" />
@@ -151,11 +151,11 @@ export default function ProjectSubprojectsModal({
         </div>
 
         {/* Controls */}
-        <div className="p-6 border-b border-gray-200 dark:border-border">
+        <div className="border-b border-border p-6">
           <div className="flex flex-col sm:flex-row gap-4">
             {/* Search */}
             <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input
                 placeholder="Search subprojects..."
                 value={search}
@@ -197,11 +197,11 @@ export default function ProjectSubprojectsModal({
         <div className="flex-1 overflow-auto p-6">
           {subprojects.length === 0 ? (
             <div className="text-center py-12">
-              <div className="text-6xl mb-4">📄</div>
-              <h3 className="text-lg font-medium text-gray-900 dark:text-foreground mb-2">
-                No subprojects found
+              <FileText className="mx-auto h-8 w-8 text-primary/50" />
+              <h3 className="mt-5 text-lg font-semibold text-foreground">
+                Nothing found
               </h3>
-              <p className="text-gray-600 dark:text-muted-foreground">
+              <p className="mt-2 text-muted-foreground">
                 {search ? 'Try adjusting your search terms' : 'This project has no subprojects yet'}
               </p>
             </div>
@@ -227,7 +227,7 @@ export default function ProjectSubprojectsModal({
                     onClick={loadMore}
                     disabled={loading}
                     variant="outline"
-                    className="min-w-32"
+                    className="min-w-36 rounded-full border-border hover:border-primary/50 hover:bg-primary/10 hover:text-primary"
                   >
                     {loading ? 'Loading...' : 'Load More'}
                   </Button>

@@ -61,6 +61,9 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   global: {
     headers: {
       'X-Client-Info': 'awtad-website-v2',
+      // Explicitly send apikey header to satisfy Supabase REST checks,
+      // even if something strips default headers.
+      apikey: supabaseAnonKey,
     },
   },
   db: {

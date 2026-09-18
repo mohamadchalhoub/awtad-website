@@ -13,6 +13,11 @@ import { useEffect, useState } from "react"
 import { ArrowLeft, Calendar, Tag, Image as ImageIcon, Share2, Download, X, ChevronLeft, ChevronRight, Maximize2, MessageCircle } from "lucide-react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { useToast } from "@/hooks/use-toast"
+import { motion } from "framer-motion"
+import { fadeUp, stagger, viewport } from "@/lib/motion"
+import { SmartImage } from "@/components/smart-image"
+import { Lightbox } from "@/components/lightbox"
+import { WhatsAppOrderDialog, type OrderRequest } from "@/components/whatsapp-order-dialog"
 
 interface ProjectWithCover {
   id: number
@@ -49,8 +54,7 @@ export default function ProjectDetailPage() {
   const [loading, setLoading] = useState(true)
   const [selectedImageIndex, setSelectedImageIndex] = useState<number | null>(null)
   const [showShareDialog, setShowShareDialog] = useState(false)
-  const [showWhatsAppModal, setShowWhatsAppModal] = useState(false)
-  const [whatsappContent, setWhatsappContent] = useState<{subject: string, body: string, imageUrl: string} | null>(null)
+  const [orderRequest, setOrderRequest] = useState<OrderRequest | null>(null)
 
   useEffect(() => {
     const loadProjectData = async () => {
@@ -183,106 +187,18 @@ export default function ProjectDetailPage() {
     setSelectedImageIndex(null)
   }
 
-  const handleOrderNow = (image: ProjectImage) => {
-          // handleOrderNow called with image
-    
-    // Create clean WhatsApp message content
-    const message = `Hello AWTAD Team! 🏗️
-
-I would like to place an order for the following project image:
-
-📋 PROJECT DETAILS:
-• Project Title: ${project?.title}
-• Project Category: ${project?.category}
-• Project Year: ${project?.year}
-• Project Description: ${project?.description}
-
-🖼️ IMAGE DETAILS:
-• Image Name: ${image.name}
-• Image Category: ${image.category}
-• Image Size: ${formatFileSize(image.size)}
-• Price: $${(image.price || 0).toFixed(2)}
-
-🔗 Project URL: ${window.location.href}
-
-📸 Image Reference: ${image.name}
-
-Thank you! I look forward to hearing from you.`
-
-    // Create WhatsApp link
-    const whatsappNumber = '+96171175906'
-    const encodedMessage = encodeURIComponent(message)
-    const whatsappLink = `https://wa.me/${whatsappNumber}?text=${encodedMessage}`
-    
-          // Opening WhatsApp link
-    
-    // Check if we're on mobile or desktop
-    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
-    
-    if (isMobile) {
-      // On mobile, try to open WhatsApp app
-      try {
-        const whatsappWindow = window.open(whatsappLink, '_blank')
-        
-        if (!whatsappWindow) {
-          // Fallback: show WhatsApp modal
-          setWhatsappContent({ 
-            subject: `WhatsApp Order Request for ${image.name}`, 
-            body: message, 
-            imageUrl: image.url 
-          })
-          setShowWhatsAppModal(true)
-        }
-      } catch (error) {
-        // Error opening WhatsApp on mobile
-        setWhatsappContent({ 
-          subject: `WhatsApp Order Request for ${image.name}`, 
-          body: message, 
-          imageUrl: image.url 
-        })
-        setShowWhatsAppModal(true)
-      }
-    } else {
-      // On desktop, always show the modal first with WhatsApp Web option
-      setWhatsappContent({ 
-        subject: `WhatsApp Order Request for ${image.name}`, 
-        body: message, 
-        imageUrl: image.url 
-      })
-      setShowWhatsAppModal(true)
-    }
+  const handleOrderNow = (image: { id: string; name: string; url: string }) => {
+    const full = projectImages.find((i) => i.id === image.id)
+    setOrderRequest({
+      imageUrl: image.url,
+      imageName: image.name,
+      projectTitle: project?.title,
+      projectCategory: project?.category,
+      projectYear: project?.year,
+      price: full?.price,
+      pageUrl: window.location.href,
+    })
   }
-
-  const handlePreviousImage = () => {
-    if (selectedImageIndex !== null) {
-      setSelectedImageIndex(selectedImageIndex === 0 ? projectImages.length - 1 : selectedImageIndex - 1)
-    }
-  }
-
-  const handleNextImage = () => {
-    if (selectedImageIndex !== null) {
-      setSelectedImageIndex(selectedImageIndex === projectImages.length - 1 ? 0 : selectedImageIndex + 1)
-    }
-  }
-
-  const handleKeyDown = (e: KeyboardEvent) => {
-    if (selectedImageIndex !== null) {
-      if (e.key === 'Escape') {
-        handleCloseViewer()
-      } else if (e.key === 'ArrowLeft') {
-        handlePreviousImage()
-      } else if (e.key === 'ArrowRight') {
-        handleNextImage()
-      }
-    }
-  }
-
-  useEffect(() => {
-    if (selectedImageIndex !== null) {
-      document.addEventListener('keydown', handleKeyDown)
-      return () => document.removeEventListener('keydown', handleKeyDown)
-    }
-  }, [selectedImageIndex])
 
   const handleShare = async () => {
     if (navigator.share && project) {
@@ -372,185 +288,193 @@ Thank you! I look forward to hearing from you.`
     <div className="min-h-screen bg-background">
       <Navigation />
 
-      {/* Hero Section with Cover Image */}
-      <section className="pt-24 pb-12 px-6">
-        <div className="max-w-7xl mx-auto">
-          <Button
-            variant="outline"
-            onClick={handleBackToProjects}
-            className="mb-6 border-primary/30 text-primary hover:bg-primary hover:text-primary-foreground bg-transparent"
+      {/* ======================= PROJECT HERO ======================= */}
+      <section className="relative px-6 pb-10 pt-32">
+        <div
+          className="pointer-events-none absolute inset-x-0 top-0 h-[420px]"
+          style={{
+            background:
+              "radial-gradient(ellipse 60% 100% at 50% 0%, var(--primary-muted) 0%, transparent 70%)",
+          }}
+        />
+
+        <div className="shell relative">
+          {/* Breadcrumb replaces the old back button as the primary wayfinder */}
+          <nav
+            aria-label="Breadcrumb"
+            className="mb-8 flex flex-wrap items-center gap-2 text-sm text-muted-foreground"
           >
-            <ArrowLeft className="w-4 h-4 mr-2" />
-            Back to Projects
-          </Button>
+            <Link href="/projects" className="transition-colors hover:text-primary">
+              Projects
+            </Link>
+            {parentProject && (
+              <>
+                <ChevronRight className="h-3.5 w-3.5 opacity-50" />
+                <Link
+                  href={`/projects/${parentProject.id}`}
+                  className="transition-colors hover:text-primary"
+                >
+                  {parentProject.title}
+                </Link>
+              </>
+            )}
+            {project && (
+              <>
+                <ChevronRight className="h-3.5 w-3.5 opacity-50" />
+                <span className="font-medium text-foreground">{project.title}</span>
+              </>
+            )}
+          </nav>
 
           {loading || !project ? (
-            // Skeleton loading state
-            <div className="grid lg:grid-cols-2 gap-8 items-center">
-              <Skeleton className="aspect-video w-full rounded-lg" />
-              <div className="space-y-6">
-                <div className="space-y-4">
-                  <div className="flex items-center space-x-4">
-                    <Skeleton className="h-6 w-24" />
-                    <Skeleton className="h-6 w-20" />
-                  </div>
-                  <Skeleton className="h-12 w-full" />
-                  <Skeleton className="h-4 w-full" />
-                  <Skeleton className="h-4 w-3/4" />
-                </div>
-                <div className="flex flex-wrap gap-3">
-                  <Skeleton className="h-10 w-32" />
-                  <Skeleton className="h-10 w-40" />
+            <div className="grid items-center gap-10 lg:grid-cols-2">
+              <div className="shimmer aspect-[4/3] w-full rounded-2xl bg-surface-2" />
+              <div className="space-y-5">
+                <div className="shimmer h-6 w-40 rounded-full bg-surface-2" />
+                <div className="shimmer h-12 w-full rounded bg-surface-2" />
+                <div className="shimmer h-4 w-full rounded bg-surface-2" />
+                <div className="shimmer h-4 w-3/4 rounded bg-surface-2" />
+                <div className="flex gap-3 pt-3">
+                  <div className="shimmer h-11 w-36 rounded-full bg-surface-2" />
+                  <div className="shimmer h-11 w-40 rounded-full bg-surface-2" />
                 </div>
               </div>
             </div>
           ) : (
-            <div className="grid lg:grid-cols-2 gap-8 items-center">
-              {/* Cover Image */}
-              <div className="aspect-video bg-muted rounded-lg overflow-hidden">
-                {project.coverImageUrl ? (
-                  <img
+            <motion.div
+              className="grid items-center gap-10 lg:grid-cols-2 lg:gap-14"
+              initial="hidden"
+              animate="visible"
+              variants={stagger(0.08, 0.05)}
+            >
+              {/* Cover */}
+              <motion.div
+                variants={fadeUp}
+                className="group relative overflow-hidden rounded-2xl border border-border bg-surface-2 shadow-[var(--shadow-xl)]"
+              >
+                <div className="relative aspect-[4/3] w-full">
+                  <SmartImage
                     src={project.coverImageUrl}
                     alt={project.title}
-                    className="w-full h-full object-cover object-center min-w-full min-h-full"
-                    style={{ objectPosition: 'center center' }}
+                    priority
+                    sizes="(max-width: 1024px) 100vw, 50vw"
+                    className="object-cover object-center transition-transform duration-[1200ms] ease-[var(--ease-out-soft)] group-hover:scale-[1.04]"
+                    fallback={
+                      <div className="steel-texture flex h-full w-full items-center justify-center">
+                        <span className="font-display text-5xl text-muted-foreground/40">
+                          {project.title?.charAt(0)?.toUpperCase()}
+                        </span>
+                      </div>
+                    }
                   />
-                ) : (
-                  <div className="w-full h-full steel-texture flex items-center justify-center">
-                    <span className="text-muted-foreground font-mono text-lg">No Cover Image</span>
-                  </div>
-                )}
-              </div>
+                </div>
+                <span className="pointer-events-none absolute inset-0 rounded-2xl ring-1 ring-inset ring-primary/10" />
+              </motion.div>
 
-              {/* Project Info */}
-              <div className="space-y-6">
-                <div className="space-y-4">
-                  <div className="flex items-center space-x-4">
-                    <span className="text-sm font-mono text-primary bg-primary/10 px-3 py-1 rounded-full">
-                      {project.category}
-                    </span>
-                    <div className="flex items-center space-x-2 text-muted-foreground">
-                      <Calendar className="w-4 h-4" />
-                      <span className="text-sm">{project.year}</span>
-                    </div>
-                  </div>
-                {/* Breadcrumb Navigation for Subprojects */}
-                {parentProject && (
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground mb-4">
-                    <Link href="/projects" className="hover:text-primary transition-colors">
-                      Projects
-                    </Link>
-                    <span>/</span>
-                    <Link 
-                      href={`/projects/${parentProject.id}`} 
-                      className="hover:text-primary transition-colors"
-                    >
-                      {parentProject.title}
-                    </Link>
-                    <span>/</span>
-                    <span className="text-foreground font-medium">{project.title}</span>
-                  </div>
-                )}
-                
-                <h1 className="text-4xl md:text-5xl font-mono font-bold text-foreground">
+              {/* Details */}
+              <div>
+                <motion.div variants={fadeUp} className="flex flex-wrap items-center gap-3">
+                  <span className="rounded-full border border-primary/30 bg-primary/10 px-3.5 py-1 text-xs font-medium tracking-wide text-primary">
+                    {project.category}
+                  </span>
+                  <span className="flex items-center gap-1.5 text-sm text-muted-foreground">
+                    <Calendar className="h-3.5 w-3.5" />
+                    {project.year}
+                  </span>
+                </motion.div>
+
+                <motion.h1 variants={fadeUp} className="text-headline mt-6">
                   {project.title}
-                </h1>
-                <p className="text-lg text-muted-foreground leading-relaxed">
-                  {project.description}
-                </p>
-              </div>
+                </motion.h1>
 
-              {/* Action Buttons */}
-              <div className="flex flex-wrap gap-3">
-                <Button
-                  onClick={handleShare}
-                  variant="outline"
-                  className="border-primary/30 text-primary hover:bg-primary hover:text-primary-foreground bg-transparent"
+                <motion.p
+                  variants={fadeUp}
+                  className="text-lede mt-6 leading-relaxed text-muted-foreground"
                 >
-                  <Share2 className="w-4 h-4 mr-2" />
-                  Share Album
-                </Button>
-                <Button
-                  onClick={handleDownloadAlbum}
-                  variant="outline"
-                  className="border-green-300 text-green-600 hover:bg-green-50 bg-transparent"
-                  disabled={projectImages.length === 0}
-                >
-                  <Download className="w-4 h-4 mr-2" />
-                  Download Album
-                </Button>
+                  {project.description}
+                </motion.p>
+
+                <motion.div variants={fadeUp} className="mt-9 flex flex-wrap gap-3">
+                  <Button
+                    onClick={handleShare}
+                    className="gold-gradient h-11 rounded-full px-6 text-primary-foreground shadow-[var(--shadow-md)] transition-shadow hover:shadow-[0_8px_30px_var(--primary-glow)]"
+                  >
+                    <Share2 className="mr-2 h-4 w-4" />
+                    Share
+                  </Button>
+                  <Button
+                    onClick={handleDownloadAlbum}
+                    variant="outline"
+                    disabled={projectImages.length === 0}
+                    className="h-11 rounded-full border-border px-6 transition-colors hover:border-primary/50 hover:bg-primary/10 hover:text-primary disabled:opacity-40"
+                  >
+                    <Download className="mr-2 h-4 w-4" />
+                    Download album
+                  </Button>
+                </motion.div>
               </div>
-            </div>
-          </div>
+            </motion.div>
           )}
         </div>
       </section>
 
       {/* Project Images Gallery */}
       {project && projectImages.length > 0 && (
-        <section className="py-16 px-6 bg-secondary/30">
-          <div className="max-w-7xl mx-auto">
+        <section className="section border-y border-border/50 bg-surface-1/40">
+          <div className="shell">
             <div className="text-center space-y-4 mb-12">
-              <h2 className="text-3xl md:text-4xl font-mono font-bold text-foreground">
-                Project <span className="text-primary">Gallery</span>
+              <h2 className="text-headline">
+                Project <span className="text-gold italic">Gallery</span>
               </h2>
               <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
                 Explore detailed images showcasing the design, construction, and final result of this project.
               </p>
             </div>
 
-            <div className="grid md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+            <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4">
               {projectImages.map((image, index) => (
-                <Card 
-                  key={image.id} 
-                  className="bg-card border-border hover:border-primary/50 transition-all group cursor-pointer"
+                <div
+                  key={image.id}
                   onClick={() => handleImageClick(index)}
+                  className="group relative aspect-square cursor-pointer overflow-hidden rounded-2xl border border-border bg-surface-2 transition-[transform,border-color,box-shadow] duration-[var(--dur-base)] ease-[var(--ease-out-soft)] hover:-translate-y-1 hover:border-primary/45 hover:shadow-[var(--shadow-xl)]"
                 >
-                  <CardContent className="p-0">
-                                                             <div className="aspect-square bg-muted flex items-center justify-center overflow-hidden relative">
-                      <img
-                        src={image.url || "/placeholder.svg"}
-                        alt={image.name}
-                        className="w-full h-full object-cover object-center group-hover:scale-105 transition-transform duration-300"
-                        loading="lazy"
-                      />
-                      
-                      {/* Order Now Button - Top Left */}
-                      <Button
-                        size="sm"
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          handleOrderNow(image)
-                        }}
-                        className="absolute top-2 left-2 bg-primary text-primary-foreground hover:bg-primary/90 shadow-lg z-50 text-xs px-2 py-1 h-7 border-2 border-white hover:scale-105 transition-transform"
-                      >
-                                  <MessageCircle className="w-3 h-3 mr-1" />
-          Order via WhatsApp
-                      </Button>
-                      
-                      <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center">
-                        <Maximize2 className="w-8 h-8 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
-                      </div>
-                    </div>
-                    <div className="p-4 space-y-3">
-                      <div className="space-y-1">
-                        <h4 className="text-sm font-medium text-foreground truncate">{image.name}</h4>
-                        <div className="flex items-center justify-between">
-                          <p className="text-xs text-primary bg-primary/10 px-2 py-1 rounded w-fit">
-                            {image.category}
-                          </p>
-                          <p className="text-xs font-semibold text-green-600 bg-green-100 px-2 py-1 rounded">
-                            ${(image.price || 0).toFixed(2)}
-                          </p>
-                        </div>
-                      </div>
-                      <div className="flex items-center justify-between text-xs text-muted-foreground">
-                        <span>{formatFileSize(image.size)}</span>
-                        <span>{new Date(image.uploadDate).toLocaleDateString()}</span>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
+                  <SmartImage
+                    src={image.url || "/placeholder.svg"}
+                    alt={image.name}
+                    sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
+                    className="object-cover object-center transition-transform duration-[900ms] ease-[var(--ease-out-soft)] group-hover:scale-[1.07]"
+                  />
+
+                  {/* Scrim only on hover — nothing obscures the work at rest */}
+                  <span className="scrim pointer-events-none absolute inset-0 opacity-0 transition-opacity duration-[var(--dur-base)] group-hover:opacity-90" />
+
+                  {/* Price, shown only when one is actually set */}
+                  {image.price > 0 && (
+                    <span className="pointer-events-none absolute left-3 top-3 rounded-full border border-primary/30 bg-black/55 px-2.5 py-1 text-[11px] font-medium tabular-nums text-primary backdrop-blur-md">
+                      ${image.price.toFixed(2)}
+                    </span>
+                  )}
+
+                  {/* Expand affordance */}
+                  <span className="pointer-events-none absolute inset-0 flex items-center justify-center">
+                    <span className="flex h-11 w-11 scale-90 items-center justify-center rounded-full border border-white/20 bg-black/45 text-white opacity-0 backdrop-blur-md transition-all duration-[var(--dur-base)] ease-[var(--ease-out-soft)] group-hover:scale-100 group-hover:opacity-100">
+                      <Maximize2 className="h-4 w-4" />
+                    </span>
+                  </span>
+
+                  {/* Order action, revealed on hover; always reachable on touch */}
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      handleOrderNow(image)
+                    }}
+                    className="absolute inset-x-3 bottom-3 flex h-9 translate-y-2 items-center justify-center gap-1.5 rounded-full bg-[#25D366] text-xs font-semibold text-black opacity-0 shadow-lg transition-all duration-[var(--dur-base)] ease-[var(--ease-out-soft)] group-hover:translate-y-0 group-hover:opacity-100 focus-visible:translate-y-0 focus-visible:opacity-100 max-md:translate-y-0 max-md:opacity-100"
+                  >
+                    <MessageCircle className="h-3.5 w-3.5" />
+                    Order
+                  </button>
+                </div>
               ))}
             </div>
           </div>
@@ -559,11 +483,11 @@ Thank you! I look forward to hearing from you.`
 
       {/* Sub-Projects Section - Directly below gallery */}
       {project && subProjects.length > 0 && (
-        <section className="py-16 px-6">
-          <div className="max-w-7xl mx-auto">
+        <section className="section">
+          <div className="shell">
             <div className="text-center space-y-4 mb-12">
-              <h2 className="text-3xl md:text-4xl font-mono font-bold text-foreground">
-                Related <span className="text-primary">Sub-Projects</span>
+              <h2 className="text-headline">
+                Related <span className="text-gold italic">Sub-Projects</span>
               </h2>
               <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
                 Explore additional projects related to {project?.title}.
@@ -580,12 +504,14 @@ Thank you! I look forward to hearing from you.`
                   <CardContent className="p-0">
                     <div className="aspect-video bg-muted overflow-hidden rounded-t-lg">
                       {subProject.coverImageUrl ? (
-                        <img
-                          src={subProject.coverImageUrl}
-                          alt={subProject.title}
-                          className="w-full h-full object-cover object-center min-w-full min-h-full group-hover:scale-105 transition-transform duration-300"
-                          style={{ objectPosition: 'center center' }}
-                        />
+                        <div className="relative h-full w-full">
+                          <SmartImage
+                            src={subProject.coverImageUrl}
+                            alt={subProject.title}
+                            sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+                            className="object-cover object-center transition-transform duration-[var(--dur-slow)] ease-[var(--ease-out-soft)] group-hover:scale-105"
+                          />
+                        </div>
                       ) : (
                         <div className="w-full h-full steel-texture flex items-center justify-center">
                           <span className="text-muted-foreground font-mono text-sm">Project {subProject.id}</span>
@@ -599,7 +525,7 @@ Thank you! I look forward to hearing from you.`
                         </span>
                         <span className="text-xs text-muted-foreground font-mono">{subProject.year}</span>
                       </div>
-                      <h3 className="text-lg font-mono font-semibold text-foreground group-hover:text-primary transition-colors">
+                      <h3 className="text-lg font-semibold text-foreground transition-colors group-hover:text-primary">
                         {subProject.title}
                       </h3>
                       <p className="text-sm text-muted-foreground leading-relaxed line-clamp-2">
@@ -616,11 +542,11 @@ Thank you! I look forward to hearing from you.`
 
       {/* Project Details */}
       {project && (
-        <section className="py-16 px-6">
+        <section className="section">
           <div className="max-w-4xl mx-auto">
             <div className="text-center space-y-4 mb-12">
-              <h2 className="text-3xl md:text-4xl font-mono font-bold text-foreground">
-                Project <span className="text-primary">Details</span>
+              <h2 className="text-headline">
+                Project <span className="text-gold italic">Details</span>
               </h2>
               <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
                 Comprehensive information about this steel engineering project.
@@ -630,7 +556,7 @@ Thank you! I look forward to hearing from you.`
             <div className="grid md:grid-cols-2 gap-8">
               <Card className="bg-card border-border">
                 <CardContent className="p-6 space-y-4">
-                  <h3 className="text-xl font-mono font-semibold text-foreground">Project Information</h3>
+                  <h3 className="text-xl font-semibold text-foreground">Project Information</h3>
                   <div className="space-y-3">
                     <div className="flex items-center space-x-3">
                       <Tag className="w-5 h-5 text-primary" />
@@ -659,7 +585,7 @@ Thank you! I look forward to hearing from you.`
 
               <Card className="bg-card border-border">
                 <CardContent className="p-6 space-y-4">
-                  <h3 className="text-xl font-mono font-semibold text-foreground">Description</h3>
+                  <h3 className="text-xl font-semibold text-foreground">Description</h3>
                   <p className="text-muted-foreground leading-relaxed">
                     {project.description}
                   </p>
@@ -671,10 +597,10 @@ Thank you! I look forward to hearing from you.`
       )}
 
       {/* Back to Projects CTA */}
-      <section className="py-16 px-6">
+      <section className="section">
         <div className="max-w-4xl mx-auto text-center space-y-6">
-          <h2 className="text-2xl font-mono font-bold text-foreground">
-            Explore More <span className="text-primary">Projects</span>
+          <h2 className="text-title">
+            Explore More <span className="text-gold italic">Projects</span>
           </h2>
           <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
             Discover our complete portfolio of steel design and engineering solutions.
@@ -685,73 +611,15 @@ Thank you! I look forward to hearing from you.`
         </div>
       </section>
 
-      {/* Full Screen Image Viewer */}
-      {selectedImageIndex !== null && (
-        <Dialog open={true} onOpenChange={handleCloseViewer}>
-          <DialogContent className="max-w-none w-screen h-screen p-0 bg-black/95 border-0">
-            <DialogHeader className="sr-only">
-              <DialogTitle>Full Screen Image Viewer</DialogTitle>
-            </DialogHeader>
-            <div className="relative w-full h-full flex items-center justify-center">
-              {/* Close Button */}
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={handleCloseViewer}
-                className="absolute top-4 right-4 z-50 bg-black/50 text-white hover:bg-black/70 border border-white/20"
-              >
-                <X className="w-6 h-6" />
-              </Button>
-
-              {/* Order Now Button - Top Left */}
-              <Button
-                size="sm"
-                onClick={() => handleOrderNow(projectImages[selectedImageIndex])}
-                className="absolute top-4 left-4 z-50 bg-primary text-primary-foreground hover:bg-primary/90 shadow-lg px-4 py-2"
-              >
-                <MessageCircle className="w-4 h-4 mr-2" />
-                Order via WhatsApp
-              </Button>
-
-              {/* Navigation Buttons */}
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={handlePreviousImage}
-                className="absolute left-4 top-1/2 transform -translate-y-1/2 z-50 bg-black/50 text-white hover:bg-black/70 border border-white/20"
-              >
-                <ChevronLeft className="w-8 h-8" />
-              </Button>
-
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={handleNextImage}
-                className="absolute right-4 top-1/2 transform -translate-y-1/2 z-50 bg-black/50 text-white hover:bg-black/70 border border-white/20"
-              >
-                <ChevronRight className="w-8 h-8" />
-              </Button>
-
-              {/* Image Display */}
-              <div className="relative w-full h-full flex items-center justify-center">
-                <img
-                  src={projectImages[selectedImageIndex].url}
-                  alt={projectImages[selectedImageIndex].name}
-                  className="max-w-full max-h-full object-contain"
-                />
-              </div>
-
-              {/* Image Info */}
-              <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 z-50 bg-black/70 text-white px-4 py-2 rounded-lg">
-                <p className="text-sm font-medium">{projectImages[selectedImageIndex].name}</p>
-                <p className="text-xs text-gray-300">
-                  {selectedImageIndex + 1} of {projectImages.length}
-                </p>
-              </div>
-            </div>
-          </DialogContent>
-        </Dialog>
-      )}
+      {/* Full-screen image viewer */}
+      <Lightbox
+        images={projectImages}
+        index={selectedImageIndex}
+        caption={project?.title}
+        onClose={handleCloseViewer}
+        onIndexChange={setSelectedImageIndex}
+        onOrder={handleOrderNow}
+      />
 
       {/* Share Dialog */}
       <Dialog open={showShareDialog} onOpenChange={setShowShareDialog}>
@@ -779,82 +647,8 @@ Thank you! I look forward to hearing from you.`
         </DialogContent>
       </Dialog>
 
-      {/* WhatsApp Order Modal */}
-      <Dialog open={showWhatsAppModal} onOpenChange={setShowWhatsAppModal}>
-        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>WhatsApp Order Request</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
-              <h4 className="font-semibold text-green-800 mb-2">📱 WhatsApp Details:</h4>
-              <p><strong>To:</strong> +96171175906 (AWTAD Team)</p>
-              <p><strong>Platform:</strong> WhatsApp</p>
-              <p className="text-sm text-green-700 mt-2">
-                💡 <strong>Desktop Users:</strong> Use "Open WhatsApp Web" button below to open WhatsApp in your browser
-              </p>
-            </div>
-            
-            <div>
-              <h4 className="font-semibold mb-2">WhatsApp Message:</h4>
-              <div className="p-3 bg-background border rounded-lg max-h-60 overflow-y-auto">
-                <pre className="whitespace-pre-wrap text-sm">{whatsappContent?.body}</pre>
-              </div>
-            </div>
-
-            <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
-              <h4 className="font-semibold text-blue-800 mb-2">🖼️ Image Reference:</h4>
-              <p className="text-sm text-blue-700 mb-2">
-                <strong>Image Name:</strong> {whatsappContent?.imageUrl ? whatsappContent.imageUrl.split('/').pop()?.split('.')[0] || 'N/A' : 'N/A'}
-              </p>
-              <p className="text-sm text-blue-700">
-                The image name is included in the WhatsApp message for easy reference.
-              </p>
-            </div>
-
-            <div className="flex space-x-2">
-              <Button 
-                onClick={() => {
-                  // Copy WhatsApp message to clipboard
-                  if (whatsappContent) {
-                    const fullMessage = `${whatsappContent.body}`
-                    navigator.clipboard.writeText(fullMessage)
-                    toast({
-          title: "Message Copied!",
-          description: "WhatsApp message has been copied to your clipboard.",
-          variant: "default",
-        })
-                  }
-                }}
-                className="flex-1"
-              >
-                Copy WhatsApp Message
-              </Button>
-              <Button
-                onClick={() => {
-                  // Open WhatsApp Web for desktop users
-                  if (whatsappContent) {
-                    const whatsappNumber = '+96171175906'
-                    const encodedMessage = encodeURIComponent(whatsappContent.body)
-                    const whatsappLink = `https://wa.me/${whatsappNumber}?text=${encodedMessage}`
-                    window.open(whatsappLink, '_blank')
-                  }
-                }}
-                className="flex-1 bg-green-600 hover:bg-green-700"
-              >
-                📱 Open WhatsApp Web
-              </Button>
-              <Button
-                variant="outline"
-                onClick={() => setShowWhatsAppModal(false)}
-                className="flex-1"
-              >
-                Close
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
+      {/* WhatsApp order enquiry */}
+      <WhatsAppOrderDialog order={orderRequest} onClose={() => setOrderRequest(null)} />
 
       <Footer />
     </div>

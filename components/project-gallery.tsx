@@ -3,9 +3,9 @@
 import { useState, useEffect } from "react"
 import { SupabaseContentService } from "@/lib/supabase-content"
 import type { Tables } from "@/lib/supabase"
-import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Mail } from "lucide-react"
+import { Mail, X } from "lucide-react"
+import { SmartImage } from "@/components/smart-image"
 
 interface ProjectGalleryProps {
   projectId?: number
@@ -94,69 +94,72 @@ Best regards,
   return (
     <div className="space-y-6">
       {showTitle && (
-        <h3 className="text-xl font-mono font-semibold text-foreground">
-          Project <span className="text-primary">Gallery</span>
+        <h3 className="text-title text-foreground">
+          Project <span className="text-gold italic">Gallery</span>
         </h3>
       )}
 
-      <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {images.map((image) => (
-          <Card
+          <div
             key={image.id}
-            className="bg-card border-border hover:border-primary/50 transition-all hover:glow-gold group cursor-pointer"
+            className="group cursor-pointer overflow-hidden rounded-2xl border border-border bg-surface-1 transition-[transform,border-color,box-shadow] duration-[var(--dur-base)] ease-[var(--ease-out-soft)] hover:-translate-y-1.5 hover:border-primary/45 hover:shadow-[var(--shadow-xl)]"
             onClick={() => setSelectedImage(image)}
           >
-            <CardContent className="p-0">
-              <div className="aspect-video bg-muted flex items-center justify-center overflow-hidden relative">
-                <img
+            <div className="p-0">
+              <div className="relative flex aspect-[4/3] items-center justify-center overflow-hidden bg-surface-2">
+                <SmartImage
                   src={image.url || "/placeholder.svg"}
                   alt={image.name || 'Project image'}
-                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                  loading="lazy"
+                  sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+                  className="object-cover transition-transform duration-[900ms] ease-[var(--ease-out-soft)] group-hover:scale-[1.06]"
                 />
                 
-                {/* Order Now Button - Top Left */}
+                {/* Scrim keeps the action button legible over any photograph */}
+                <span className="scrim pointer-events-none absolute inset-0 opacity-0 transition-opacity duration-[var(--dur-base)] group-hover:opacity-70" />
+
                 <Button
                   size="sm"
                   onClick={(e) => {
                     e.stopPropagation()
                     handleOrderNow(image)
                   }}
-                  className="absolute top-2 left-2 bg-primary text-primary-foreground hover:bg-primary/90 shadow-lg z-10 text-xs px-2 py-1 h-7"
+                  className="gold-gradient absolute bottom-3 left-3 z-10 h-8 translate-y-2 rounded-full px-3.5 text-xs text-primary-foreground opacity-0 shadow-[var(--shadow-md)] transition-all duration-[var(--dur-base)] ease-[var(--ease-out-soft)] group-hover:translate-y-0 group-hover:opacity-100"
                 >
-                  <Mail className="w-3 h-3 mr-1" />
-                  Order Now
+                  <Mail className="mr-1.5 h-3 w-3" />
+                  Order now
                 </Button>
               </div>
-            </CardContent>
-          </Card>
+            </div>
+          </div>
         ))}
       </div>
 
       {selectedImage && (
         <div
-          className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+          className="fixed inset-0 z-[60] flex items-center justify-center bg-[var(--overlay)] p-4 backdrop-blur-md"
           onClick={() => setSelectedImage(null)}
         >
-          <div className="max-w-4xl max-h-full bg-card border border-border rounded-lg overflow-hidden">
-            <div className="p-4 border-b border-border flex items-center justify-between">
-              <h4 className="font-mono font-semibold text-foreground">{selectedImage.name}</h4>
+          <div className="panel max-h-full max-w-4xl overflow-hidden rounded-3xl" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between gap-4 border-b border-border p-4">
+              <h4 className="truncate font-display text-lg font-semibold text-foreground">{selectedImage.name}</h4>
               <div className="flex items-center space-x-2">
                 <Button
                   size="sm"
                   onClick={() => handleOrderNow(selectedImage)}
-                  className="bg-primary text-primary-foreground hover:bg-primary/90"
+                  className="gold-gradient rounded-full text-primary-foreground shadow-[var(--shadow-sm)]"
                 >
-                  <Mail className="w-4 h-4 mr-2" />
+                  <Mail className="mr-2 h-4 w-4" />
                   Order Now
                 </Button>
                 <Button
                   variant="ghost"
                   size="sm"
                   onClick={() => setSelectedImage(null)}
-                  className="text-muted-foreground hover:text-foreground"
+                  className="rounded-full text-muted-foreground hover:text-foreground"
+                  aria-label="Close"
                 >
-                  ✕
+                  <X className="h-4 w-4" />
                 </Button>
               </div>
             </div>
