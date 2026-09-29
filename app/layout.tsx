@@ -1,96 +1,84 @@
 import type React from "react"
 import type { Metadata, Viewport } from "next"
-import { Inter, Cormorant_Garamond } from "next/font/google"
-import { ContentProvider } from "@/hooks/use-content"
-import { ThemeProvider } from "@/components/theme-provider"
+import { cookies } from "next/headers"
+import { Manrope, Instrument_Serif, Tajawal } from "next/font/google"
 import { Toaster } from "@/components/ui/toaster"
 import { PerformanceMonitor } from "@/components/performance-monitor"
+import { LocaleProvider } from "@/lib/i18n"
+import { LOCALE_COOKIE, type Locale } from "@/lib/locale"
 import "./globals.css"
 
-const inter = Inter({
+// Contemporary sans for UI and most headings.
+const manrope = Manrope({
   subsets: ["latin"],
   display: "swap",
-  variable: "--font-inter",
+  variable: "--font-manrope",
 })
 
-// High-contrast serif for headings — reads as gallery/atelier rather than
-// the sci-fi register the previous Orbitron display face carried.
-const cormorant = Cormorant_Garamond({
+// High-contrast serif, used sparingly for selected editorial words.
+const instrument = Instrument_Serif({
   subsets: ["latin"],
-  weight: ["300", "400", "500", "600", "700"],
+  weight: "400",
+  style: ["normal", "italic"],
   display: "swap",
-  variable: "--font-cormorant",
+  variable: "--font-instrument",
+})
+
+// Readable contemporary Arabic, paired with Manrope's proportions.
+const tajawal = Tajawal({
+  subsets: ["arabic", "latin"],
+  weight: ["400", "500", "700"],
+  display: "swap",
+  variable: "--font-tajawal",
 })
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://awtad.com"),
   title: {
-    default: "AWTAD — Bespoke Metal Craft",
+    default: "AWTAD — Ideas Crafted in Metal",
     template: "%s · AWTAD",
   },
   description:
-    "AWTAD crafts bespoke metal artistry — portraits, wall art, calligraphy and custom steel work. Together for better.",
-  keywords: [
-    "metal art",
-    "steel design",
-    "metal portrait",
-    "calligraphy",
-    "custom metalwork",
-    "Lebanon",
-    "AWTAD",
-  ],
-  icons: {
-    icon: "/logo.jpg",
-    apple: "/logo.jpg",
-  },
+    "AWTAD designs and fabricates bespoke laser-cut metal pieces in Beirut — wall art, portraits, personalised gifts and branding. Simple in concept, precise in execution.",
+  keywords: ["metal art", "laser cut", "metal portrait", "Arabic calligraphy", "custom metalwork", "Lebanon", "AWTAD"],
   openGraph: {
-    title: "AWTAD — Bespoke Metal Craft",
-    description:
-      "Bespoke metal artistry, crafted to meet your imagination. Together for better.",
-    images: ["/logo.jpg"],
+    title: "AWTAD — Ideas Crafted in Metal",
+    description: "Bespoke laser-cut metal pieces, designed and made in Beirut.",
     type: "website",
   },
-  generator: "",
 }
 
 export const viewport: Viewport = {
-  themeColor: [
-    { media: "(prefers-color-scheme: dark)", color: "#1a1613" },
-    { media: "(prefers-color-scheme: light)", color: "#faf8f4" },
-  ],
+  themeColor: "#121212",
 }
 
-export default function RootLayout({
-  children,
-}: Readonly<{
-  children: React.ReactNode
-}>) {
+export default async function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
+  const locale: Locale = (await cookies()).get(LOCALE_COOKIE)?.value === "ar" ? "ar" : "en"
+
   return (
     <html
-      lang="en"
-      className={`${inter.variable} ${cormorant.variable}`}
+      lang={locale}
+      dir={locale === "ar" ? "rtl" : "ltr"}
+      className={`${manrope.variable} ${instrument.variable} ${tajawal.variable}`}
       suppressHydrationWarning
     >
       <head>
+        {/* Portfolio data and photos come from these hosts; open the connections early. */}
+        <link rel="preconnect" href={process.env.NEXT_PUBLIC_SUPABASE_URL} crossOrigin="" />
         <style>{`
 html {
-  --font-sans: ${inter.style.fontFamily};
-  --font-display: ${cormorant.style.fontFamily};
-  --font-mono: ${cormorant.style.fontFamily};
+  --font-sans: ${manrope.style.fontFamily};
+  --font-display: ${instrument.style.fontFamily};
+  --font-arabic: ${tajawal.style.fontFamily};
 }
         `}</style>
       </head>
       <body className="antialiased">
-        <ThemeProvider
-          attribute="class"
-          defaultTheme="dark"
-          enableSystem={false}
-          disableTransitionOnChange
-        >
-          <ContentProvider>{children}</ContentProvider>
-          <Toaster />
-          <PerformanceMonitor />
-        </ThemeProvider>
+        <LocaleProvider initialLocale={locale}>
+          {children}
+        </LocaleProvider>
+        <Toaster />
+        <PerformanceMonitor />
       </body>
     </html>
   )

@@ -5,86 +5,109 @@
 
 /* ==========================================================================
    AWTAD DESIGN TOKENS
-   A warm gold-on-obsidian system built around the brand mark.
-   Dark is the primary theme; light is a warm ivory gallery counterpart.
+   Warm editorial light sections alternating with deep charcoal ones.
+   Gold is an accent only: buttons, hairlines, numbers, active states.
+
+   Brand values
+     Charcoal        #121212
+     Warm off-white  #F5F3EE
+     Warm light gray #E8E5DF
+     Muted gray      #8A8982   (large/secondary text only — 3.2:1 on off-white)
+     AWTAD gold      #D9AF59   (median of the saturated gold in the logo)
+   Derived
+     Ink gray        #6F6E68   (body-size muted text on off-white, 4.6:1)
+     Gold ink        #7F5F22   (gold text on off-white, 5.3:1 — #D9AF59 is 1.9:1)
    ========================================================================== */
 
 :root {
-  /* --- Brand gold ramp (shared by both themes) --- */
-  --gold-100: oklch(0.94 0.05 90);
-  --gold-200: oklch(0.88 0.09 88);
-  --gold-300: oklch(0.83 0.12 85);
-  --gold-400: oklch(0.78 0.135 80);
-  --gold-500: oklch(0.72 0.14 74);
-  --gold-600: oklch(0.63 0.125 68);
-  --gold-700: oklch(0.52 0.1 64);
+  --charcoal: #121212;
+  --charcoal-2: #1b1b1a;
+  --charcoal-3: #262624;
+  --off-white: #f5f3ee;
+  --light-gray: #e8e5df;
+  --muted-gray: #8a8982;
+  --ink-gray: #6f6e68;
+  --gold: #d9af59;
+  --gold-soft: #e7cd94;
+  --gold-deep: #7f5f22;
 
-  /* --- Light theme: warm ivory gallery --- */
-  --background: oklch(0.982 0.006 85);
-  --foreground: oklch(0.19 0.012 70);
+  /* Legacy gold ramp, kept so admin screens keep compiling; all flat now. */
+  --gold-100: #f4ead3;
+  --gold-200: #ecd9ae;
+  --gold-300: #e7cd94;
+  --gold-400: #dfbd76;
+  --gold-500: #d9af59;
+  --gold-600: #b48d3e;
+  --gold-700: #7f5f22;
 
-  --surface-1: oklch(1 0 0);
-  --surface-2: oklch(0.965 0.008 85);
-  --surface-3: oklch(0.94 0.01 82);
+  /* --- Light (default): warm editorial --- */
+  --background: var(--off-white);
+  --foreground: var(--charcoal);
 
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.19 0.012 70);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.19 0.012 70);
+  --surface-1: #fbfaf7;
+  --surface-2: var(--light-gray);
+  --surface-3: #dcd8d0;
 
-  --primary: oklch(0.6 0.125 68);
-  --primary-foreground: oklch(0.99 0.01 90);
-  --primary-muted: oklch(0.6 0.125 68 / 0.12);
-  --primary-glow: oklch(0.72 0.14 74 / 0.35);
+  --card: #fbfaf7;
+  --card-foreground: var(--charcoal);
+  --popover: #fbfaf7;
+  --popover-foreground: var(--charcoal);
 
-  --secondary: oklch(0.955 0.008 85);
-  --secondary-foreground: oklch(0.24 0.012 70);
+  --primary: var(--gold);
+  --primary-foreground: var(--charcoal);
+  --primary-muted: rgb(217 175 89 / 0.14);
+  --primary-glow: rgb(217 175 89 / 0.3);
+  /* Gold as text or a hairline — deepened on light for contrast. */
+  --gold-ink: var(--gold-deep);
 
-  --muted: oklch(0.955 0.008 85);
-  --muted-foreground: oklch(0.52 0.012 70);
+  --secondary: var(--light-gray);
+  --secondary-foreground: var(--charcoal);
 
-  --accent: oklch(0.95 0.012 85);
-  --accent-foreground: oklch(0.24 0.012 70);
+  --muted: var(--light-gray);
+  --muted-foreground: var(--ink-gray);
+  --subtle-foreground: var(--muted-gray);
 
-  --destructive: oklch(0.58 0.2 27);
-  --destructive-foreground: oklch(0.99 0 0);
+  --accent: var(--light-gray);
+  --accent-foreground: var(--charcoal);
 
-  --success: oklch(0.6 0.13 150);
-  --warning: oklch(0.72 0.15 75);
+  --destructive: #b3261e;
+  --destructive-foreground: #ffffff;
+  --success: #3f7d4e;
+  --warning: #b48d3e;
 
-  --border: oklch(0.9 0.008 82);
-  --border-strong: oklch(0.84 0.01 80);
-  --input: oklch(0.9 0.008 82);
-  --ring: oklch(0.6 0.125 68 / 0.55);
+  --border: #dedad2;
+  --border-strong: #c9c4ba;
+  --input: #d6d1c8;
+  --ring: rgb(217 175 89 / 0.6);
 
-  --overlay: oklch(0.19 0.012 70 / 0.45);
-  --scrim: linear-gradient(to top, oklch(0.12 0.01 70 / 0.92) 0%, oklch(0.12 0.01 70 / 0.5) 45%, transparent 100%);
+  --overlay: rgb(18 18 18 / 0.55);
+  --scrim: linear-gradient(to top, rgb(18 18 18 / 0.85) 0%, rgb(18 18 18 / 0.35) 45%, transparent 100%);
 
-  --chart-1: oklch(0.65 0.14 74);
-  --chart-2: oklch(0.6 0.1 220);
-  --chart-3: oklch(0.55 0.12 160);
-  --chart-4: oklch(0.7 0.15 45);
-  --chart-5: oklch(0.55 0.15 300);
+  --chart-1: #d9af59;
+  --chart-2: #6f6e68;
+  --chart-3: #3f7d4e;
+  --chart-4: #b48d3e;
+  --chart-5: #262624;
 
-  --sidebar: oklch(0.97 0.008 85);
-  --sidebar-foreground: oklch(0.19 0.012 70);
-  --sidebar-primary: oklch(0.6 0.125 68);
-  --sidebar-primary-foreground: oklch(0.99 0.01 90);
-  --sidebar-accent: oklch(0.94 0.01 82);
-  --sidebar-accent-foreground: oklch(0.24 0.012 70);
-  --sidebar-border: oklch(0.9 0.008 82);
-  --sidebar-ring: oklch(0.6 0.125 68 / 0.55);
+  --sidebar: #fbfaf7;
+  --sidebar-foreground: var(--charcoal);
+  --sidebar-primary: var(--gold);
+  --sidebar-primary-foreground: var(--charcoal);
+  --sidebar-accent: var(--light-gray);
+  --sidebar-accent-foreground: var(--charcoal);
+  --sidebar-border: #dedad2;
+  --sidebar-ring: rgb(217 175 89 / 0.6);
 
-  /* --- Geometry --- */
-  --radius: 0.75rem;
+  /* --- Geometry: architectural, barely rounded --- */
+  --radius: 0.375rem;
+  --header-h: 4.5rem;
 
-  /* --- Elevation (warm-tinted, never pure black) --- */
-  --shadow-sm: 0 1px 2px oklch(0.2 0.02 70 / 0.06), 0 1px 3px oklch(0.2 0.02 70 / 0.04);
-  --shadow-md: 0 4px 12px oklch(0.2 0.02 70 / 0.08), 0 2px 4px oklch(0.2 0.02 70 / 0.04);
-  --shadow-lg: 0 12px 32px oklch(0.2 0.02 70 / 0.1), 0 4px 8px oklch(0.2 0.02 70 / 0.05);
-  --shadow-xl: 0 24px 60px oklch(0.2 0.02 70 / 0.14), 0 8px 16px oklch(0.2 0.02 70 / 0.06);
+  --shadow-sm: 0 1px 2px rgb(18 18 18 / 0.05);
+  --shadow-md: 0 6px 18px rgb(18 18 18 / 0.07);
+  --shadow-lg: 0 16px 40px rgb(18 18 18 / 0.1);
+  --shadow-xl: 0 28px 64px rgb(18 18 18 / 0.14);
 
-  /* --- Motion: one curve, three durations, used everywhere --- */
+  /* --- Motion: one curve, three durations --- */
   --ease-out-soft: cubic-bezier(0.22, 1, 0.36, 1);
   --ease-in-out-soft: cubic-bezier(0.65, 0, 0.35, 1);
   --dur-fast: 180ms;
@@ -92,67 +115,52 @@
   --dur-slow: 620ms;
 }
 
-.dark {
-  /* --- Dark theme: warm obsidian --- */
-  --background: oklch(0.135 0.008 65);
-  --foreground: oklch(0.96 0.006 85);
+/* --- Dark: deep charcoal cinematic sections (and admin's dark class) --- */
+.dark,
+.theme-dark {
+  --background: var(--charcoal);
+  --foreground: var(--off-white);
 
-  --surface-1: oklch(0.175 0.009 65);
-  --surface-2: oklch(0.212 0.01 66);
-  --surface-3: oklch(0.255 0.012 68);
+  --surface-1: var(--charcoal-2);
+  --surface-2: var(--charcoal-3);
+  --surface-3: #31312e;
 
-  --card: oklch(0.175 0.009 65);
-  --card-foreground: oklch(0.96 0.006 85);
-  --popover: oklch(0.19 0.009 65);
-  --popover-foreground: oklch(0.96 0.006 85);
+  --card: var(--charcoal-2);
+  --card-foreground: var(--off-white);
+  --popover: var(--charcoal-2);
+  --popover-foreground: var(--off-white);
 
-  --primary: oklch(0.78 0.135 80);
-  --primary-foreground: oklch(0.16 0.015 68);
-  --primary-muted: oklch(0.78 0.135 80 / 0.14);
-  --primary-glow: oklch(0.78 0.135 80 / 0.4);
+  --gold-ink: var(--gold);
 
-  --secondary: oklch(0.225 0.01 66);
-  --secondary-foreground: oklch(0.96 0.006 85);
+  --secondary: var(--charcoal-3);
+  --secondary-foreground: var(--off-white);
 
-  --muted: oklch(0.225 0.01 66);
-  --muted-foreground: oklch(0.7 0.012 75);
+  --muted: var(--charcoal-3);
+  --muted-foreground: #a3a29b;
+  --subtle-foreground: var(--muted-gray);
 
-  --accent: oklch(0.255 0.012 68);
-  --accent-foreground: oklch(0.96 0.006 85);
+  --accent: var(--charcoal-3);
+  --accent-foreground: var(--off-white);
 
-  --destructive: oklch(0.62 0.2 27);
-  --destructive-foreground: oklch(0.98 0 0);
+  --border: #2e2e2b;
+  --border-strong: #454541;
+  --input: #3a3a37;
 
-  --success: oklch(0.7 0.14 150);
-  --warning: oklch(0.8 0.14 78);
+  --sidebar: var(--charcoal-2);
+  --sidebar-foreground: var(--off-white);
+  --sidebar-accent: var(--charcoal-3);
+  --sidebar-accent-foreground: var(--off-white);
+  --sidebar-border: #2e2e2b;
 
-  --border: oklch(0.29 0.011 68);
-  --border-strong: oklch(0.38 0.014 70);
-  --input: oklch(0.29 0.011 68);
-  --ring: oklch(0.78 0.135 80 / 0.55);
+  --shadow-sm: 0 1px 2px rgb(0 0 0 / 0.4);
+  --shadow-md: 0 6px 18px rgb(0 0 0 / 0.4);
+  --shadow-lg: 0 16px 40px rgb(0 0 0 / 0.45);
+  --shadow-xl: 0 28px 64px rgb(0 0 0 / 0.55);
+}
 
-  --overlay: oklch(0.08 0.008 65 / 0.72);
-  --scrim: linear-gradient(to top, oklch(0.1 0.008 65 / 0.96) 0%, oklch(0.1 0.008 65 / 0.55) 45%, transparent 100%);
-
-  --chart-1: oklch(0.78 0.135 80);
-  --chart-2: oklch(0.68 0.12 220);
-  --chart-3: oklch(0.7 0.13 160);
-  --chart-4: oklch(0.75 0.16 45);
-  --chart-5: oklch(0.68 0.16 300);
-
-  --sidebar: oklch(0.16 0.009 65);
-  --sidebar-foreground: oklch(0.96 0.006 85);
-  --sidebar-primary: oklch(0.78 0.135 80);
-  --sidebar-primary-foreground: oklch(0.16 0.015 68);
-  --sidebar-accent: oklch(0.225 0.01 66);
-  --sidebar-accent-foreground: oklch(0.96 0.006 85);
-  --sidebar-border: oklch(0.29 0.011 68);
-  --sidebar-ring: oklch(0.78 0.135 80 / 0.55);
-
-  --shadow-sm: 0 1px 2px oklch(0 0 0 / 0.4);
-  --shadow-md: 0 4px 14px oklch(0 0 0 / 0.45);
-  --shadow-lg: 0 14px 38px oklch(0 0 0 / 0.5);
-  --shadow-xl: 0 28px 68px oklch(0 0 0 / 0.6);
+.theme-dark {
+  background-color: var(--background);
+  color: var(--foreground);
 }
 
 @theme inline {
@@ -171,6 +179,7 @@
   --color-secondary-foreground: var(--secondary-foreground);
   --color-muted: var(--muted);
   --color-muted-foreground: var(--muted-foreground);
+  --color-subtle-foreground: var(--subtle-foreground);
   --color-accent: var(--accent);
   --color-accent-foreground: var(--accent-foreground);
   --color-destructive: var(--destructive);
@@ -181,6 +190,11 @@
   --color-border-strong: var(--border-strong);
   --color-input: var(--input);
   --color-ring: var(--ring);
+  --color-gold: var(--gold);
+  --color-gold-ink: var(--gold-ink);
+  --color-charcoal: var(--charcoal);
+  --color-off-white: var(--off-white);
+  --color-light-gray: var(--light-gray);
   --color-gold-100: var(--gold-100);
   --color-gold-200: var(--gold-200);
   --color-gold-300: var(--gold-300);
@@ -193,11 +207,11 @@
   --color-chart-3: var(--chart-3);
   --color-chart-4: var(--chart-4);
   --color-chart-5: var(--chart-5);
-  --radius-sm: calc(var(--radius) - 4px);
-  --radius-md: calc(var(--radius) - 2px);
-  --radius-lg: var(--radius);
+  --radius-sm: calc(var(--radius) - 2px);
+  --radius-md: var(--radius);
+  --radius-lg: calc(var(--radius) + 2px);
   --radius-xl: calc(var(--radius) + 6px);
-  --radius-2xl: calc(var(--radius) + 14px);
+  --radius-2xl: calc(var(--radius) + 10px);
   --color-sidebar: var(--sidebar);
   --color-sidebar-foreground: var(--sidebar-foreground);
   --color-sidebar-primary: var(--sidebar-primary);
@@ -208,6 +222,7 @@
   --color-sidebar-ring: var(--sidebar-ring);
   --font-display: var(--font-display);
   --font-sans: var(--font-sans);
+  --font-arabic: var(--font-arabic);
 }
 
 @layer base {
@@ -218,19 +233,28 @@
   html {
     scroll-behavior: smooth;
     -webkit-tap-highlight-color: transparent;
+    scroll-padding-top: var(--header-h);
   }
 
   body {
     @apply bg-background text-foreground font-sans;
-    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
     text-rendering: optimizeLegibility;
   }
 
-  /* Display face for every heading, with the tight optical spacing
-     a high-contrast serif needs at large sizes. */
+  /* Arabic gets its own family everywhere, including headings. */
+  html[lang="ar"] body,
+  html[lang="ar"] h1,
+  html[lang="ar"] h2,
+  html[lang="ar"] h3,
+  html[lang="ar"] h4,
+  .font-arabic {
+    font-family: var(--font-arabic), var(--font-sans), sans-serif;
+    letter-spacing: 0 !important;
+  }
+
   h1, h2, h3, h4 {
-    font-family: var(--font-display), Georgia, serif;
-    letter-spacing: -0.015em;
+    font-family: var(--font-sans), system-ui, sans-serif;
+    letter-spacing: -0.025em;
     text-wrap: balance;
   }
 
@@ -239,28 +263,10 @@
   }
 
   ::selection {
-    background: var(--primary-muted);
-    color: var(--foreground);
+    background: rgb(217 175 89 / 0.3);
+    color: inherit;
   }
 
-  /* A restrained gold scrollbar rather than the OS default. */
-  ::-webkit-scrollbar {
-    width: 10px;
-    height: 10px;
-  }
-  ::-webkit-scrollbar-track {
-    background: var(--surface-1);
-  }
-  ::-webkit-scrollbar-thumb {
-    background: var(--border-strong);
-    border-radius: 999px;
-    border: 2px solid var(--surface-1);
-  }
-  ::-webkit-scrollbar-thumb:hover {
-    background: var(--primary);
-  }
-
-  /* Anyone who asks for less motion gets none of it. */
   @media (prefers-reduced-motion: reduce) {
     html {
       scroll-behavior: auto;
@@ -275,53 +281,75 @@
 }
 
 @layer components {
-  /* ---- Fluid type scale --------------------------------------------------
-     Sizes interpolate with the viewport instead of stepping at breakpoints. */
+  /* ---- Fluid type scale ---- */
   .text-display {
-    font-size: clamp(2.75rem, 1.4rem + 6.2vw, 7rem);
-    line-height: 0.96;
-    letter-spacing: -0.03em;
-    font-weight: 600;
+    font-size: clamp(2.9rem, 1.6rem + 6vw, 7.25rem);
+    line-height: 0.95;
+    letter-spacing: -0.04em;
+    font-weight: 500;
   }
 
   .text-headline {
-    font-size: clamp(2rem, 1.2rem + 3.2vw, 3.75rem);
-    line-height: 1.06;
-    letter-spacing: -0.022em;
-    font-weight: 600;
+    font-size: clamp(2.1rem, 1.3rem + 3.2vw, 4rem);
+    line-height: 1.02;
+    letter-spacing: -0.035em;
+    font-weight: 500;
   }
 
   .text-title {
-    font-size: clamp(1.375rem, 1.1rem + 1.1vw, 1.875rem);
+    font-size: clamp(1.3rem, 1.1rem + 0.9vw, 1.75rem);
     line-height: 1.2;
-    letter-spacing: -0.015em;
-    font-weight: 600;
+    letter-spacing: -0.02em;
+    font-weight: 500;
   }
 
   .text-lede {
-    font-size: clamp(1.0625rem, 1rem + 0.5vw, 1.375rem);
+    font-size: clamp(1.05rem, 0.98rem + 0.35vw, 1.25rem);
     line-height: 1.6;
   }
 
-  /* ---- Eyebrow: the small tracked-out label above a headline ---- */
+  /* The one serif: selected words in large editorial headings. */
+  .font-editorial {
+    font-family: var(--font-display), Georgia, serif;
+    font-weight: 400;
+    font-style: italic;
+    letter-spacing: -0.01em;
+  }
+  html[lang="ar"] .font-editorial {
+    font-family: var(--font-arabic), sans-serif;
+    font-style: normal;
+    font-weight: 700;
+  }
+
+  /* ---- Eyebrow / section number ---- */
   .eyebrow {
     font-family: var(--font-sans);
-    font-size: 0.6875rem;
-    font-weight: 500;
-    letter-spacing: 0.22em;
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0.24em;
     text-transform: uppercase;
-    color: var(--primary);
+    color: var(--gold-ink);
+  }
+  html[lang="ar"] .eyebrow {
+    font-family: var(--font-arabic);
+    letter-spacing: 0;
+    font-size: 0.85rem;
   }
 
   /* ---- Section rhythm ---- */
   .section {
-    padding-block: clamp(4.5rem, 3rem + 7vw, 9rem);
-    padding-inline: 1.5rem;
+    padding-block: clamp(4.5rem, 3rem + 6vw, 8.5rem);
+    padding-inline: 1rem;
+  }
+  @media (min-width: 640px) {
+    .section {
+      padding-inline: 1.5rem;
+    }
   }
 
   .shell {
     width: 100%;
-    max-width: 80rem;
+    max-width: 84rem;
     margin-inline: auto;
   }
 
@@ -329,152 +357,157 @@
   .panel {
     background: var(--surface-1);
     border: 1px solid var(--border);
-    border-radius: calc(var(--radius) + 6px);
-    box-shadow: var(--shadow-md);
+    border-radius: calc(var(--radius) + 4px);
   }
 
   .glass {
-    background: color-mix(in oklab, var(--background) 62%, transparent);
-    backdrop-filter: blur(20px) saturate(180%);
-    -webkit-backdrop-filter: blur(20px) saturate(180%);
+    background: color-mix(in oklab, var(--background) 82%, transparent);
+    backdrop-filter: blur(16px) saturate(140%);
+    -webkit-backdrop-filter: blur(16px) saturate(140%);
     border: 1px solid color-mix(in oklab, var(--border) 70%, transparent);
   }
 
-  /* ---- The hairline gold rule used to open and close sections ---- */
   .rule-gold {
     height: 1px;
     border: 0;
-    background: linear-gradient(
-      to right,
-      transparent,
-      var(--primary) 35%,
-      var(--primary) 65%,
-      transparent
-    );
-    opacity: 0.55;
+    background: var(--gold-ink);
+    opacity: 0.6;
+  }
+
+  /* ---- Buttons ---- */
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.6rem;
+    min-height: 3rem;
+    padding-inline: 1.5rem;
+    border-radius: 999px;
+    font-size: 0.95rem;
+    font-weight: 600;
+    letter-spacing: 0.005em;
+    white-space: nowrap;
+    transition: background-color var(--dur-base) var(--ease-out-soft),
+                color var(--dur-base) var(--ease-out-soft),
+                border-color var(--dur-base) var(--ease-out-soft);
+  }
+  .btn:focus-visible {
+    outline: 2px solid var(--gold);
+    outline-offset: 3px;
+  }
+  .btn-gold {
+    background: var(--gold);
+    color: var(--charcoal);
+  }
+  .btn-gold:hover {
+    background: var(--gold-soft);
+  }
+  .btn-outline {
+    border: 1px solid color-mix(in oklab, var(--foreground) 28%, transparent);
+    color: var(--foreground);
+  }
+  .btn-outline:hover {
+    border-color: var(--foreground);
+  }
+  .btn-ink {
+    background: var(--foreground);
+    color: var(--background);
+  }
+  .btn-ink:hover {
+    background: color-mix(in oklab, var(--foreground) 85%, var(--gold));
+  }
+
+  /* Arrow that nudges forward on hover — flips direction in RTL. */
+  .arrow {
+    display: inline-block;
+    transition: transform var(--dur-base) var(--ease-out-soft);
+  }
+  [dir="rtl"] .arrow {
+    transform: scaleX(-1);
+  }
+  .group:hover .arrow,
+  .btn:hover .arrow {
+    transform: translateX(4px);
+  }
+  [dir="rtl"] .group:hover .arrow,
+  [dir="rtl"] .btn:hover .arrow {
+    transform: scaleX(-1) translateX(4px);
+  }
+
+  /* Photograph that eases in slightly on hover. */
+  .zoom-media {
+    transition: transform 1.1s var(--ease-out-soft);
+  }
+  .group:hover .zoom-media {
+    transform: scale(1.04);
   }
 }
 
 @layer utilities {
-  /* ---- Brand gold, now driven entirely by tokens ---- */
+  /* Legacy names used by admin screens — now flat gold, no gradients. */
   .gold-gradient {
-    background: linear-gradient(135deg, var(--gold-300) 0%, var(--gold-500) 52%, var(--gold-600) 100%);
+    background: var(--gold);
   }
-
-  /* The single source of truth for gold type. Replaces every
-     ad-hoc `from-amber-400 via-yellow-500 …` gradient in the codebase. */
   .text-gold {
-    background: linear-gradient(112deg, var(--gold-200) 0%, var(--gold-400) 42%, var(--gold-600) 100%);
-    -webkit-background-clip: text;
-    background-clip: text;
-    color: transparent;
-    -webkit-text-fill-color: transparent;
+    color: var(--gold-ink);
   }
-
-  /* Sheen: a slow highlight travelling across gold type, like light
-     moving over a polished surface. */
   .text-gold-sheen {
-    background: linear-gradient(
-      112deg,
-      var(--gold-500) 0%,
-      var(--gold-300) 30%,
-      var(--gold-100) 45%,
-      var(--gold-300) 60%,
-      var(--gold-500) 100%
-    );
-    background-size: 280% 100%;
-    -webkit-background-clip: text;
-    background-clip: text;
-    color: transparent;
-    -webkit-text-fill-color: transparent;
-    animation: gold-sheen 7s var(--ease-in-out-soft) infinite;
+    color: var(--gold-ink);
   }
-
-  @keyframes gold-sheen {
-    0%, 100% { background-position: 0% 50%; }
-    50% { background-position: 100% 50%; }
-  }
-
   .glow-gold {
-    box-shadow: 0 0 0 1px color-mix(in oklab, var(--primary) 25%, transparent),
-                0 8px 36px var(--primary-glow);
+    box-shadow: 0 0 0 1px color-mix(in oklab, var(--gold) 35%, transparent);
   }
-
   .text-shadow-gold {
-    text-shadow: 0 0 28px var(--primary-glow);
+    text-shadow: none;
   }
-
-  /* ---- Brushed-metal texture, far subtler than the old checkerboard ---- */
   .steel-texture {
-    background-image:
-      repeating-linear-gradient(
-        102deg,
-        transparent 0px,
-        transparent 2px,
-        color-mix(in oklab, var(--foreground) 3%, transparent) 2px,
-        color-mix(in oklab, var(--foreground) 3%, transparent) 3px
-      ),
-      linear-gradient(
-        135deg,
-        color-mix(in oklab, var(--primary) 5%, transparent) 0%,
-        transparent 45%,
-        color-mix(in oklab, var(--primary) 3%, transparent) 100%
-      );
+    background-image: none;
   }
-
-  /* ---- Film grain: the layer that stops large flat areas looking digital ---- */
   .grain::after {
-    content: "";
-    position: absolute;
-    inset: 0;
-    pointer-events: none;
-    opacity: 0.045;
-    mix-blend-mode: overlay;
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)'/%3E%3C/svg%3E");
+    content: none;
   }
-
   .bg-gradient-radial {
     background: radial-gradient(circle, var(--tw-gradient-stops));
   }
-
-  /* ---- The scrim that makes white text readable over any photograph ---- */
   .scrim {
     background: var(--scrim);
   }
-
-  /* ---- Interaction primitives ---- */
   .lift {
     transition: transform var(--dur-base) var(--ease-out-soft),
-                box-shadow var(--dur-base) var(--ease-out-soft),
-                border-color var(--dur-base) var(--ease-out-soft);
+                box-shadow var(--dur-base) var(--ease-out-soft);
   }
   .lift:hover {
-    transform: translateY(-4px);
-    box-shadow: var(--shadow-xl);
+    transform: translateY(-3px);
+    box-shadow: var(--shadow-lg);
+  }
+  .floating {
+    animation: none;
   }
 
-  /* Nav-link underline that wipes in from the left. */
+  /* Underline that draws in from the reading start edge. */
   .link-underline {
     position: relative;
   }
   .link-underline::after {
     content: "";
     position: absolute;
-    left: 0;
+    inset-inline-start: 0;
     bottom: -6px;
-    height: 1.5px;
+    height: 1px;
     width: 100%;
-    background: linear-gradient(to right, var(--gold-300), var(--gold-600));
+    background: var(--gold);
     transform: scaleX(0);
     transform-origin: left;
     transition: transform var(--dur-base) var(--ease-out-soft);
+  }
+  [dir="rtl"] .link-underline::after {
+    transform-origin: right;
   }
   .link-underline:hover::after,
   .link-underline[data-active="true"]::after {
     transform: scaleX(1);
   }
 
-  /* ---- Line clamping ---- */
   .line-clamp-1,
   .line-clamp-2,
   .line-clamp-3 {
@@ -486,17 +519,6 @@
   .line-clamp-2 { -webkit-line-clamp: 2; }
   .line-clamp-3 { -webkit-line-clamp: 3; }
 
-  /* ---- Ambient motion ---- */
-  .floating {
-    animation: floating 6s var(--ease-in-out-soft) infinite;
-  }
-
-  @keyframes floating {
-    0%, 100% { transform: translateY(0); }
-    50% { transform: translateY(-10px); }
-  }
-
-  /* Skeletons shimmer instead of blinking. */
   .shimmer {
     position: relative;
     overflow: hidden;
@@ -514,8 +536,24 @@
     );
     animation: shimmer 1.8s infinite;
   }
-
   @keyframes shimmer {
     100% { transform: translateX(100%); }
+  }
+
+  /* Room at the bottom of the page for the mobile action bar. */
+  .pb-mobile-bar {
+    padding-bottom: calc(5rem + env(safe-area-inset-bottom));
+  }
+  @media (min-width: 1024px) {
+    .pb-mobile-bar {
+      padding-bottom: 0;
+    }
+  }
+
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  .no-scrollbar {
+    scrollbar-width: none;
   }
 }

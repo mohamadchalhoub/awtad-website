@@ -84,27 +84,22 @@ const nextConfig = {
           },
         ],
       },
-      // Image caching
-      {
-        source: '/_next/image(.*)',
-        headers: [
-          {
-            key: 'Cache-Control',
-            value: 'public, max-age=31536000, immutable',
-          },
-        ],
-      },
-      // API routes caching
+      // /_next/image is left to Next.js: it sets its own cache headers from
+      // minimumCacheTTL. Forcing `immutable` here meant a replaced photo could
+      // stay stale in browsers for a year.
+
+      // API routes: never cache uploads or data reads at the CDN.
       {
         source: '/api/(.*)',
         headers: [
           {
             key: 'Cache-Control',
-            value: 'public, max-age=300, s-maxage=300',
+            value: 'no-store',
           },
         ],
       },
-      // HTML pages caching
+      // HTML pages: always revalidate, so a new deploy is what visitors see
+      // on their next load rather than a cached previous version.
       {
         source: '/((?!api|_next/static|_next/image|favicon.ico).*)',
         headers: [

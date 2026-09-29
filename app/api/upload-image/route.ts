@@ -1,7 +1,12 @@
 import { put } from '@vercel/blob';
 import { NextResponse } from 'next/server';
+import sharp from 'sharp';
 
-export const runtime = 'edge'; // Use Edge Runtime for better performance
+// Node runtime: sharp is a native module and cannot run on the Edge.
+export const runtime = 'nodejs';
+
+/** Longest edge stored. Camera originals (5000px+) made the optimizer time out. */
+const MAX_EDGE = 1800;
 
 export async function POST(request: Request) {
   try {
@@ -37,19 +42,32 @@ export async function POST(request: Request) {
     const sanitizedName = file.name
       .replace(/[^a-zA-Z0-9.-]/g, '-')
       .toLowerCase();
-    const filename = `project-images/${timestamp}-${sanitizedName}`;
+
+    // Store a web-sized JPEG instead of the camera original. Animated GIFs
+    // and SVGs are kept as uploaded.
+    const resizable = !/^image\/(gif|svg\+xml)$/.test(file.type);
+    const body = resizable
+      ? await sharp(Buffer.from(await file.arrayBuffer()))
+          .rotate()
+          .resize(MAX_EDGE, MAX_EDGE, { fit: 'inside', withoutEnlargement: true })
+          .jpeg({ quality: 82, mozjpeg: true, progressive: true })
+          .toBuffer()
+      : file;
+    const baseName = resizable ? sanitizedName.replace(/\.[a-z0-9]+$/, '') + '.jpg' : sanitizedName;
+    const filename = `project-images/${timestamp}-${baseName}`;
 
     // Upload to Vercel Blob
-    const blob = await put(filename, file, {
+    const blob = await put(filename, body, {
       access: 'public',
+      contentType: resizable ? 'image/jpeg' : file.type,
       token: process.env.BLOB_READ_WRITE_TOKEN,
     });
 
     return NextResponse.json({
       url: blob.url,
       filename: file.name,
-      size: file.size,
-      type: file.type,
+      size: resizable ? (body as Buffer).length : file.size,
+      type: resizable ? 'image/jpeg' : file.type,
     });
   } catch (error) {
     console.error('Error uploading to Vercel Blob:', error);
