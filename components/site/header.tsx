@@ -2,17 +2,84 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { AnimatePresence, motion } from "framer-motion"
-import { ArrowRight, Menu, MessageCircle, X } from "lucide-react"
+import { ArrowRight, ChevronDown, Menu, MessageCircle, X } from "lucide-react"
 import { Logo } from "@/components/site/logo"
 import { useLocale } from "@/lib/i18n"
-import { NAV, whatsappUrl } from "@/lib/site"
+import { NAV, SHOP_LINKS, whatsappUrl } from "@/lib/site"
 import { EASE } from "@/lib/motion"
 import { cn } from "@/lib/utils"
 
 function isActive(pathname: string, href: string) {
-  return href === "/" ? pathname === "/" : pathname.startsWith(href)
+  const path = href.split("?")[0]
+  if (href.includes("?")) return false
+  return path === "/" ? pathname === "/" : pathname.startsWith(path)
+}
+
+/** Desktop "Shop" item: opens on hover or focus, and toggles on click/tap. */
+function ShopMenu({ pathname }: { pathname: string }) {
+  const { t } = useLocale()
+  const [open, setOpen] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
+
+  useEffect(() => setOpen(false), [pathname])
+  useEffect(() => {
+    if (!open) return
+    const onDown = (e: MouseEvent) => !ref.current?.contains(e.target as Node) && setOpen(false)
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false)
+    document.addEventListener("mousedown", onDown)
+    document.addEventListener("keydown", onKey)
+    return () => {
+      document.removeEventListener("mousedown", onDown)
+      document.removeEventListener("keydown", onKey)
+    }
+  }, [open])
+
+  const item = "flex min-h-11 items-center px-5 text-sm transition-colors hover:bg-surface-2"
+
+  return (
+    <div
+      ref={ref}
+      className="relative"
+      onMouseEnter={() => setOpen(true)}
+      onMouseLeave={() => setOpen(false)}
+      onBlur={(e) => !e.currentTarget.contains(e.relatedTarget) && setOpen(false)}
+    >
+      <button
+        type="button"
+        aria-expanded={open}
+        aria-haspopup="true"
+        onClick={() => setOpen((o) => !o)}
+        data-active={isActive(pathname, "/projects")}
+        className={cn(
+          "link-underline inline-flex min-h-11 items-center gap-1 text-sm font-medium transition-opacity duration-[var(--dur-fast)]",
+          open || isActive(pathname, "/projects") ? "opacity-100" : "opacity-75 hover:opacity-100"
+        )}
+      >
+        {t.nav.shop}
+        <ChevronDown className={cn("h-3.5 w-3.5 transition-transform", open && "rotate-180")} />
+      </button>
+      {open && (
+        <div className="absolute start-1/2 top-full z-50 w-64 -translate-x-1/2 pt-2 rtl:translate-x-1/2">
+          <ul className="overflow-hidden rounded-[var(--radius)] border border-border bg-background py-2 text-foreground shadow-[var(--shadow-lg)]">
+            {SHOP_LINKS.map((key) => (
+              <li key={key}>
+                <Link href={`/projects?category=${key}`} className={item}>
+                  {t.categories[key]}
+                </Link>
+              </li>
+            ))}
+            <li className="mt-1 border-t border-border pt-1">
+              <Link href="/projects" className={cn(item, "font-semibold")}>
+                {t.nav.viewAll}
+              </Link>
+            </li>
+          </ul>
+        </div>
+      )}
+    </div>
+  )
 }
 
 export function LanguageToggle({ className }: { className?: string }) {
@@ -93,20 +160,24 @@ export function Header({ overlay = false }: { overlay?: boolean }) {
           </Link>
 
           <nav className="hidden items-center gap-7 xl:flex" aria-label="Main">
-            {NAV.map((item) => (
-              <Link
-                key={item.href}
-                href={item.href}
-                data-active={isActive(pathname, item.href)}
-                aria-current={isActive(pathname, item.href) ? "page" : undefined}
-                className={cn(
-                  "link-underline text-sm font-medium transition-opacity duration-[var(--dur-fast)]",
-                  isActive(pathname, item.href) ? "opacity-100" : "opacity-75 hover:opacity-100"
-                )}
-              >
-                {t.nav[item.key]}
-              </Link>
-            ))}
+            {NAV.map((item) =>
+              "children" in item ? (
+                <ShopMenu key={item.key} pathname={pathname} />
+              ) : (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  data-active={isActive(pathname, item.href)}
+                  aria-current={isActive(pathname, item.href) ? "page" : undefined}
+                  className={cn(
+                    "link-underline text-sm font-medium transition-opacity duration-[var(--dur-fast)]",
+                    isActive(pathname, item.href) ? "opacity-100" : "opacity-75 hover:opacity-100"
+                  )}
+                >
+                  {t.nav[item.key]}
+                </Link>
+              )
+            )}
           </nav>
 
           <div className="hidden items-center gap-3 xl:flex">
@@ -175,11 +246,26 @@ export function Header({ overlay = false }: { overlay?: boolean }) {
                       href={item.href}
                       onClick={() => setOpen(false)}
                       aria-current={isActive(pathname, item.href) ? "page" : undefined}
-                      className="flex min-h-16 items-center justify-between text-2xl font-medium tracking-tight"
+                      className="flex min-h-14 items-center justify-between text-2xl font-medium tracking-tight"
                     >
                       {t.nav[item.key]}
                       {isActive(pathname, item.href) && <span className="h-1.5 w-1.5 rounded-full bg-gold" />}
                     </Link>
+                    {"children" in item && (
+                      <ul className="grid grid-cols-2 gap-x-4 pb-4">
+                        {SHOP_LINKS.map((key) => (
+                          <li key={key}>
+                            <Link
+                              href={`/projects?category=${key}`}
+                              onClick={() => setOpen(false)}
+                              className="flex min-h-11 items-center text-base text-muted-foreground hover:text-foreground"
+                            >
+                              {t.categories[key]}
+                            </Link>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
                   </motion.li>
                 ))}
               </ul>

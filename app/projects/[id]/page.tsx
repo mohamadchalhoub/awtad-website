@@ -18,7 +18,7 @@ import { cn } from "@/lib/utils"
 const CHAPTERS: Stage[] = ["idea", "design", "craft", "result"]
 
 /** Customize form type that best matches a portfolio category. */
-const TYPE_FOR = { "wall-art": "wall-art", portraits: "portrait", gifts: "gift", business: "business", custom: "other" } as const
+const TYPE_FOR = { "wall-art": "wall-art", islamic: "calligraphy", personalized: "portrait", home: "other", special: "gift" } as const
 
 /** A sellable item: the photo (tap to enlarge) with its own WhatsApp order button underneath. */
 function Photo({

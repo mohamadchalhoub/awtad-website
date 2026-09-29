@@ -1,9 +1,13 @@
 "use client"
 
+import { Cog, Gem, Hand, PenTool, Scissors } from "lucide-react"
 import { Reveal } from "@/components/site/reveal"
 import { SmartImage } from "@/components/smart-image"
 import { useLocale } from "@/lib/i18n"
 import { MEDIA } from "@/lib/site"
+
+// Same order as t.precision.specs: design, cutting, materials, finishing, made to order.
+const ICONS = [PenTool, Scissors, Gem, Hand, Cog]
 
 export function PrecisionSection() {
   const { t } = useLocale()
@@ -18,14 +22,22 @@ export function PrecisionSection() {
             <p className="eyebrow">{t.precision.eyebrow}</p>
             <h2 id="precision-title" className="text-headline mt-4">{t.precision.title}</h2>
           </Reveal>
-          <dl className="mt-12 grid grid-cols-2 border-t border-border">
-            {t.precision.specs.map((s, i) => (
-              <Reveal key={s.label} delay={i * 0.05} className={`border-b border-border py-8 ${i % 2 === 0 ? "pe-6" : "border-s ps-6"}`}>
-                <dt className="text-title">{s.value}</dt>
-                <dd className="mt-1 text-sm uppercase tracking-[0.18em] text-muted-foreground">{s.label}</dd>
-              </Reveal>
-            ))}
-          </dl>
+          <ul className="mt-10 border-t border-border">
+            {t.precision.specs.map((s, i) => {
+              const Icon = ICONS[i]
+              return (
+                <Reveal as="li" key={s.value} delay={i * 0.05} className="flex items-center gap-5 border-b border-border py-5">
+                  <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-border-strong text-gold-ink">
+                    <Icon className="h-5 w-5" strokeWidth={1.5} />
+                  </span>
+                  <span>
+                    <span className="block text-lg font-medium">{s.value}</span>
+                    <span className="block text-sm text-muted-foreground">{s.label}</span>
+                  </span>
+                </Reveal>
+              )
+            })}
+          </ul>
         </div>
       </div>
     </section>

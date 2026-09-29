@@ -14,7 +14,7 @@ export function FinalCta() {
       <Mark className="pointer-events-none absolute -bottom-16 end-[-3rem] h-[26rem] w-auto text-gold opacity-[0.05] sm:h-[34rem]" title="" />
       <Reveal className="shell relative text-center">
         <p className="text-lede text-muted-foreground">{t.cta.titleA}</p>
-        <h2 className="text-display mx-auto mt-5 max-w-4xl">
+        <h2 className="text-headline mx-auto mt-5 max-w-3xl">
           <span className="font-editorial">{t.cta.titleB}</span>
         </h2>
         <div className="mt-12 flex flex-col items-stretch justify-center gap-3 sm:flex-row sm:items-center">

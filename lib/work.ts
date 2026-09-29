@@ -1,5 +1,5 @@
 import { supabase } from "@/lib/supabase"
-import { categorize, type CategoryKey } from "@/lib/site"
+import { categorize, wallSubcategory, type CategoryKey, type WallSub } from "@/lib/site"
 import { webUrl } from "@/lib/web-images"
 
 /**
@@ -27,6 +27,8 @@ export interface WorkItem {
   description: string
   year: string
   category: CategoryKey
+  /** Only meaningful inside Wall Art; drives that collection's filter chips. */
+  wallSub: WallSub
   rawCategory: string
   parentId: number | null
   cover?: string
@@ -68,6 +70,7 @@ async function load(): Promise<WorkItem[]> {
         description: (p.description ?? "").trim(),
         year: p.year ?? "",
         category: categorize(p.title, p.category, parent?.title, parent?.category),
+        wallSub: wallSubcategory(p.title, p.category, parent?.title, parent?.category),
         rawCategory: p.category ?? "",
         parentId: p.parent_id ?? null,
         cover: coverRow && webUrl(coverRow.url),
@@ -100,4 +103,19 @@ export function getWork(): Promise<WorkItem[]> {
 /** Pieces worth showing in a gallery: anything with a photograph. */
 export function withPhotos(items: WorkItem[]) {
   return items.filter((i) => i.cover)
+}
+
+/**
+ * A short, varied selection for the homepage: individual pieces (not
+ * collection parents), at most two per collection so no single kind of
+ * product dominates, each collection represented before any repeats.
+ */
+export function featured(items: WorkItem[], limit = 8) {
+  const pool = withPhotos(items).filter((i) => i.childIds.length === 0)
+  const perCategory = new Map<CategoryKey, WorkItem[]>()
+  for (const i of pool) perCategory.set(i.category, [...(perCategory.get(i.category) ?? []), i])
+  const out: WorkItem[] = []
+  for (let round = 0; round < 2; round++)
+    for (const list of perCategory.values()) if (list[round] && out.length < limit) out.push(list[round])
+  return out
 }

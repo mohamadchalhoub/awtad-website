@@ -27,6 +27,13 @@ export function Footer() {
                 </Link>
               </li>
             ))}
+            {[{ href: "/customize", label: t.nav.customize }, { href: "/how-its-made", label: t.nav.process }].map((n) => (
+              <li key={n.href}>
+                <Link href={n.href} className="inline-flex min-h-10 items-center text-muted-foreground transition-colors hover:text-foreground">
+                  {n.label}
+                </Link>
+              </li>
+            ))}
           </ul>
         </div>
         <div>
