@@ -1,6 +1,6 @@
 "use client"
 
-import { useMemo, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import Link from "next/link"
 import { useParams } from "next/navigation"
 import { ArrowLeft, ArrowRight, Expand, MessageCircle } from "lucide-react"
@@ -29,6 +29,7 @@ function Photo({
   className,
   sizes,
   priority,
+  variant = "card",
 }: {
   img: WorkImage
   onOpen: () => void
@@ -37,22 +38,47 @@ function Photo({
   className?: string
   sizes: string
   priority?: boolean
+  /** "hero" keeps the whole photo in a square; "card" is a 4:5 product tile. */
+  variant?: "hero" | "card"
 }) {
+  // Card tiles fill the frame for portrait photos, but fit square/landscape
+  // shots (often line art on white) whole so nothing gets cropped away.
+  const [wide, setWide] = useState(false)
+  useEffect(() => {
+    if (variant !== "card") return
+    const probe = new window.Image()
+    probe.onload = () => setWide(probe.naturalWidth / probe.naturalHeight > 0.9)
+    probe.src = img.url
+  }, [img.url, variant])
+  const contain = variant === "hero" || wide
   return (
     <div className={cn("w-full", className)}>
       <button
         type="button"
         onClick={onOpen}
-        className="group relative block aspect-square w-full overflow-hidden rounded-[var(--radius)] border border-border bg-surface-1"
+        className={cn(
+          "group relative block w-full overflow-hidden rounded-[var(--radius)] border border-border bg-surface-1",
+          variant === "hero" ? "aspect-square" : "aspect-[4/5]",
+        )}
         aria-label={`${img.alt} — enlarge`}
       >
-        <SmartImage src={img.url} alt={img.alt} sizes={sizes} priority={priority} quality={72} className="object-contain p-2 sm:p-3" />
+        <SmartImage
+          src={img.url}
+          alt={img.alt}
+          sizes={sizes}
+          priority={priority}
+          quality={75}
+          className={cn(
+            "transition-transform duration-500 group-hover:scale-[1.04]",
+            contain ? "object-contain p-3 sm:p-4" : "object-cover",
+          )}
+        />
         <span className="absolute end-2 top-2 flex h-8 w-8 items-center justify-center rounded-full bg-charcoal/70 text-off-white opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100">
           <Expand className="h-4 w-4" />
         </span>
       </button>
       {formatPrice(img.price) && (
-        <p className="mt-2 text-center text-sm font-semibold tabular-nums text-gold-ink">{formatPrice(img.price)}</p>
+        <p className="mt-3 text-center text-base font-semibold tabular-nums text-gold-ink">{formatPrice(img.price)}</p>
       )}
       {onOrder && (
         <button
@@ -166,6 +192,7 @@ export default function ProjectPage() {
                 img={hero ?? item.images[0]}
                 onOpen={() => setLightbox(indexOf(hero ?? item.images[0]))}
                 priority
+                variant="hero"
                 sizes="(min-width:1024px) 680px, 92vw"
                 className="mx-auto w-full max-w-[min(92vw,62svh)] lg:me-0 lg:max-w-[min(100%,calc(100svh-var(--header-h)-4rem))]"
               />
@@ -197,18 +224,18 @@ export default function ProjectPage() {
           if (!imgs.length) return null
           return (
             <section key={stage} className="section pb-0">
-              <div className="shell grid gap-8 lg:grid-cols-[16rem_1fr]">
-                <Reveal>
+              <div className="shell">
+                <Reveal className="flex items-baseline gap-3">
                   <p className="text-xs font-semibold tracking-wider text-gold-ink">0{i + 1}</p>
-                  <h2 className="mt-2 text-sm font-semibold uppercase tracking-[0.22em]">{chapterLabel[stage]}</h2>
+                  <h2 className="text-sm font-semibold uppercase tracking-[0.22em]">{chapterLabel[stage]}</h2>
                 </Reveal>
-                <div className={cn("grid gap-4", imgs.length > 1 && "sm:grid-cols-2")}>
+                <ul className="mt-6 grid grid-cols-2 gap-x-4 gap-y-8 lg:grid-cols-3 lg:gap-x-6 2xl:grid-cols-4">
                   {imgs.map((img) => (
-                    <Reveal key={img.id}>
-                      <Photo img={img} onOpen={() => setLightbox(indexOf(img))} sizes="(min-width:1024px) 20vw, 50vw" className="max-w-[16rem]" />
+                    <Reveal as="li" key={img.id}>
+                      <Photo img={img} onOpen={() => setLightbox(indexOf(img))} sizes="(min-width:1536px) 25vw, (min-width:1024px) 33vw, 50vw" />
                     </Reveal>
                   ))}
-                </div>
+                </ul>
               </div>
             </section>
           )
@@ -216,13 +243,13 @@ export default function ProjectPage() {
 
       {restResults.length > 0 && (
         <section className="section pb-0">
-          <div className="shell grid gap-8 lg:grid-cols-[16rem_1fr]">
-            <Reveal>
+          <div className="shell">
+            <Reveal className="flex items-baseline gap-3">
               {hasProcess && <p className="text-xs font-semibold tracking-wider text-gold-ink">04</p>}
-              <h2 className="mt-2 text-sm font-semibold uppercase tracking-[0.22em]">{t.project.result}</h2>
+              <h2 className="text-sm font-semibold uppercase tracking-[0.22em]">{t.project.result}</h2>
             </Reveal>
-            {/* Thumbnails; the fullscreen viewer is one tap away for detail. */}
-            <ul className="grid grid-cols-2 gap-x-3 gap-y-6 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5">
+            {/* Product grid: 2 / 3 / 4 columns; the fullscreen viewer is one tap away for detail. */}
+            <ul className="mt-6 grid grid-cols-2 gap-x-4 gap-y-8 lg:grid-cols-3 lg:gap-x-6 2xl:grid-cols-4">
               {restResults.map((img) => (
                 <Reveal as="li" key={img.id}>
                   <Photo
@@ -230,7 +257,7 @@ export default function ProjectPage() {
                     onOpen={() => setLightbox(indexOf(img))}
                     onOrder={() => order(img.url)}
                     orderLabel={t.project.orderShort}
-                    sizes="(min-width:1280px) 15vw, (min-width:768px) 22vw, 45vw"
+                    sizes="(min-width:1536px) 25vw, (min-width:1024px) 33vw, 50vw"
                   />
                 </Reveal>
               ))}
