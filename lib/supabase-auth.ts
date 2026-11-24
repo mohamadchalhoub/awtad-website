@@ -21,7 +21,7 @@ export interface SignUpCredentials {
 
 export class SupabaseAuthService {
   private static readonly USER_CACHE_KEY = "awtad_user_cache"
-  private static readonly SESSION_TIMEOUT = 30 * 60 * 1000 // 30 minutes
+  private static readonly SESSION_TIMEOUT = 2 * 60 * 60 * 1000 // 2 hours
   private static sessionTimer: NodeJS.Timeout | null = null
 
   /**
