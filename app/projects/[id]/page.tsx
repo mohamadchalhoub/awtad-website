@@ -12,7 +12,7 @@ import { WorkGallery } from "@/components/sections/work-gallery"
 import { useWork } from "@/hooks/use-work"
 import { whatsappUrl } from "@/lib/site"
 import { useLocale } from "@/lib/i18n"
-import { withPhotos, type Stage, type WorkImage } from "@/lib/work"
+import { formatPrice, withPhotos, type Stage, type WorkImage } from "@/lib/work"
 import { cn } from "@/lib/utils"
 
 const CHAPTERS: Stage[] = ["idea", "design", "craft", "result"]
@@ -51,6 +51,9 @@ function Photo({
           <Expand className="h-4 w-4" />
         </span>
       </button>
+      {formatPrice(img.price) && (
+        <p className="mt-2 text-center text-sm font-semibold tabular-nums text-gold-ink">{formatPrice(img.price)}</p>
+      )}
       {onOrder && (
         <button
           type="button"
@@ -113,12 +116,13 @@ export default function ProjectPage() {
 
   const { item, next, parent, children } = data
   const order = (imageUrl?: string) => {
-    const message = [`Hello AWTAD, I'd like to order this piece: ${item.title}`, window.location.href, imageUrl ? `Photo: ${imageUrl}` : ""]
+    const price = formatPrice(item.images.find((i) => i.url === imageUrl)?.price)
+    const message = [`Hello AWTAD, I'd like to order this piece: ${item.title}`, price ? `Price: ${price}` : "", window.location.href, imageUrl ? `Photo: ${imageUrl}` : ""]
       .filter(Boolean)
       .join("\n")
     window.open(whatsappUrl(message), "_blank", "noopener,noreferrer")
   }
-  const lightboxImages = item.images.map((i) => ({ id: i.id, name: i.alt, url: i.url }))
+  const lightboxImages = item.images.map((i) => ({ id: i.id, name: i.alt, url: i.url, price: formatPrice(i.price) }))
   const indexOf = (img: WorkImage) => item.images.indexOf(img)
   const byStage = (s: Stage) => item.images.filter((i) => i.stage === s)
   // The first result photo is the hero; the rest belong to The Result.
@@ -136,7 +140,7 @@ export default function ProjectPage() {
       {/* Where am I / what am I looking at */}
       {/* Phones: title → photo → story + actions. Desktop: text left, photo right, all above the fold. */}
       <section className="px-4 pb-6 pt-6 sm:px-6 lg:pb-10 lg:pt-10">
-        <div className="shell grid gap-x-12 gap-y-6 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)] lg:grid-rows-[auto_1fr] xl:gap-x-16">
+        <div className="shell grid gap-x-12 gap-y-6 lg:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)] lg:grid-rows-[auto_1fr] xl:gap-x-16">
           <div className="lg:col-start-1 lg:row-start-1">
             <nav className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground" aria-label="Breadcrumb">
               <Link href="/projects" className="group inline-flex min-h-10 items-center gap-2 hover:text-foreground">
@@ -162,8 +166,8 @@ export default function ProjectPage() {
                 img={hero ?? item.images[0]}
                 onOpen={() => setLightbox(indexOf(hero ?? item.images[0]))}
                 priority
-                sizes="(min-width:1024px) 420px, 80vw"
-                className="mx-auto max-w-[min(80vw,42svh)] lg:me-0 lg:max-w-[min(100%,calc(100svh-var(--header-h)-9rem),420px)]"
+                sizes="(min-width:1024px) 680px, 92vw"
+                className="mx-auto w-full max-w-[min(92vw,62svh)] lg:me-0 lg:max-w-[min(100%,calc(100svh-var(--header-h)-4rem))]"
               />
             </div>
           )}

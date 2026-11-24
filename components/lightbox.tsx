@@ -83,6 +83,8 @@ export interface LightboxImage {
   id: string
   name: string
   url: string
+  /** Pre-formatted price label, e.g. "$25". */
+  price?: string | null
 }
 
 interface LightboxProps {
@@ -203,6 +205,9 @@ export function Lightbox({
                 {index + 1}{" "}
                 <span className="text-white/40">/ {images.length}</span>
               </p>
+            )}
+            {current.price && (
+              <p className="mt-1 text-lg font-semibold tabular-nums text-gold">{current.price}</p>
             )}
           </div>
 

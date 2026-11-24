@@ -19,6 +19,8 @@ export interface WorkImage {
   alt: string
   /** Set an image's category to idea / design / craft in the admin to place it in that chapter. */
   stage: Stage
+  /** Price in USD set in the admin; undefined means not priced. */
+  price?: number
 }
 
 export interface WorkItem {
@@ -48,7 +50,7 @@ async function load(): Promise<WorkItem[]> {
       .from("projects")
       .select("id,title,category,description,year,parent_id,cover_image_id,created_at")
       .order("created_at", { ascending: false }),
-    supabase.from("images").select("id,url,name,alt_text,category,project_id,created_at").order("created_at"),
+    supabase.from("images").select("id,url,name,alt_text,category,project_id,price,created_at").order("created_at"),
   ])
   if (projectsRes.error) throw projectsRes.error
   if (imagesRes.error) throw imagesRes.error
@@ -81,6 +83,7 @@ async function load(): Promise<WorkItem[]> {
             url: webUrl(i.url),
             alt: i.alt_text || p.title,
             stage: STAGES.includes(tag) ? tag : "result",
+            price: Number(i.price) > 0 ? Number(i.price) : undefined,
           }
         }),
         childIds: projects.filter((c) => c.parent_id === p.id && c.title?.trim()).map((c) => c.id),
@@ -118,4 +121,10 @@ export function featured(items: WorkItem[], limit = 8) {
   for (let round = 0; round < 2; round++)
     for (const list of perCategory.values()) if (list[round] && out.length < limit) out.push(list[round])
   return out
+}
+
+/** "$25" / "$12.50" for a priced image, otherwise null. */
+export function formatPrice(price?: number) {
+  if (!price || price <= 0) return null
+  return `$${Number.isInteger(price) ? price : price.toFixed(2)}`
 }
